@@ -1,0 +1,8 @@
+[project]
+name = "care-bed-agent"
+version = "0.1.0"
+description = "Agent core for an intelligent electric care bed"
+requires-python = ">=3.12"
+
+[tool.unittest]
+start-directory = "tests"

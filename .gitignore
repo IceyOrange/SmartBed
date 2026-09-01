@@ -1,0 +1,31 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Test and tool caches
+.pytest_cache/
+.vitest/
+coverage/
+
+# Local design sessions and worktrees
+.superpowers/
+.worktrees/
+
+# Local font installer package
+/京东朗正体安装包/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
