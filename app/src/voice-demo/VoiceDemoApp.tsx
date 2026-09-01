@@ -1,4 +1,4 @@
-import { AudioLines, Check, CircleAlert, ShieldCheck, X } from "lucide-react";
+import { AudioLines, CircleAlert, ShieldCheck } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { toDemoTurn } from "../api/adapters";
@@ -7,8 +7,10 @@ import type { ConversationMessageDto, DemoOverviewDto, SystemStateDto } from "..
 import ConversationStrip from "./components/ConversationStrip";
 import DemoGuide from "./components/DemoGuide";
 import IdleOverview from "./components/IdleOverview";
+import ServiceStage from "./components/ServiceStage";
 import VoiceConsole from "./components/VoiceConsole";
 import { createDemoSession, type DemoSessionState } from "./model";
+import { toServicePresentation } from "./servicePresentation";
 
 interface SpeechAlternativeLike {
   transcript: string;
@@ -53,14 +55,6 @@ declare global {
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
-
-const STATUS_LABELS = {
-  clarifying: "还需要说明",
-  "awaiting-confirmation": "等待确认",
-  "simulated-complete": "处理完成",
-  information: "已经答复",
-  restricted: "安全保护",
-} as const;
 
 function speak(text: string) {
   if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return;
@@ -388,6 +382,7 @@ export default function VoiceDemoApp() {
   };
 
   const latestTurn = session.turns[0];
+  const presentation = latestTurn ? toServicePresentation(latestTurn) : null;
   const currentTime = new Intl.DateTimeFormat("zh-CN", {
     hour: "2-digit",
     minute: "2-digit",
@@ -429,32 +424,12 @@ export default function VoiceDemoApp() {
             onToggleListening={() => void startOrStopListening()}
           />
 
-          {latestTurn ? (
-            <section className={`service-stage service-stage--${latestTurn.match.domain}`} aria-labelledby="service-stage-title">
-              <div className="stage-heading">
-                <div>
-                  <span className="section-kicker">当前服务</span>
-                  <h2 id="service-stage-title">{latestTurn.match.label}</h2>
-                </div>
-                <span className={`result-status status-${latestTurn.status}`}>
-                  {STATUS_LABELS[latestTurn.status]}
-                </span>
-              </div>
-              <div className="simple-result-card">
-                <span className="simple-result-card__icon"><Check size={28} /></span>
-                <p>{latestTurn.response}</p>
-              </div>
-              {latestTurn.status === "awaiting-confirmation" ? (
-                <div className="confirmation-actions">
-                  <button type="button" onClick={() => void submitInput("取消")} disabled={submitting}>
-                    <X size={18} />取消
-                  </button>
-                  <button type="button" className="confirm-button" onClick={() => void submitInput("确认")} disabled={submitting}>
-                    <Check size={18} />确认执行
-                  </button>
-                </div>
-              ) : null}
-            </section>
+          {presentation ? (
+            <ServiceStage
+              presentation={presentation}
+              onConfirm={() => void submitInput("确认")}
+              onCancel={() => void submitInput("取消")}
+            />
           ) : (
             <IdleOverview overview={overview} systemState={systemState} />
           )}
