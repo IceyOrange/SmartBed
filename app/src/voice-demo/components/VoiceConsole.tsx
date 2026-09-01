@@ -1,4 +1,4 @@
-import { AudioLines, BookOpenText, Keyboard, Mic, MicOff, SendHorizontal } from "lucide-react";
+import { AudioLines, BookOpenText, Keyboard, Mic, MicOff, RotateCcw, SendHorizontal } from "lucide-react";
 import type { FormEvent, RefObject } from "react";
 
 import type { DemoTurn } from "../model";
@@ -12,9 +12,11 @@ interface VoiceConsoleProps {
   speechMessage: string;
   speechStarting: boolean;
   submitting: boolean;
+  failedRequest: string | null;
   onDraftChange: (value: string) => void;
   onFillExample: (value: string) => void;
   onOpenGuide: () => void;
+  onRetry: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onToggleListening: () => void;
 }
@@ -44,9 +46,11 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
     speechMessage,
     speechStarting,
     submitting,
+    failedRequest,
     onDraftChange,
     onFillExample,
     onOpenGuide,
+    onRetry,
     onSubmit,
     onToggleListening,
   } = props;
@@ -87,9 +91,15 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
         </button>
       </div>
 
-      <div className="speech-state" aria-live="polite">
-        <strong>{stateTitle({ latestTurn, listening, speechStarting, submitting })}</strong>
+      <div className={`speech-state${failedRequest ? " is-error" : ""}`} aria-live="polite">
+        <strong>{failedRequest ? "这次请求没有发送成功" : stateTitle({ latestTurn, listening, speechStarting, submitting })}</strong>
         <p>{interimTranscript ? `“${interimTranscript}”` : speechMessage}</p>
+        {failedRequest && !submitting ? (
+          <button type="button" className="speech-retry" aria-label="重新发送刚才的请求" onClick={onRetry}>
+            <RotateCcw size={15} />
+            重新发送
+          </button>
+        ) : null}
       </div>
 
       {submitting ? (

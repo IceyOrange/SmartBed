@@ -269,6 +269,45 @@ describe("bedside voice demo", () => {
     expect(screen.queryByRole("dialog", { name: "演示指南" })).not.toBeInTheDocument();
   });
 
+  it("keeps keyboard focus inside the guide and restores it after Escape", async () => {
+    const user = userEvent.setup();
+    render(<VoiceDemoApp />);
+
+    const guideButton = screen.getByRole("button", { name: "打开演示指南" });
+    await user.click(guideButton);
+
+    const guide = screen.getByRole("dialog", { name: "演示指南" });
+    expect(within(guide).getByRole("button", { name: "关闭演示指南" })).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "演示指南" })).not.toBeInTheDocument();
+    expect(guideButton).toHaveFocus();
+  });
+
+  it("shows a trustworthy loading state before bedside data arrives", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => undefined)));
+
+    render(<VoiceDemoApp />);
+
+    expect(screen.getByRole("status", { name: "正在同步床侧状态" })).toBeInTheDocument();
+    expect(screen.queryByText("--")).not.toBeInTheDocument();
+  });
+
+  it("returns to the daily overview without clearing the current conversation", async () => {
+    const user = userEvent.setup();
+    render(<VoiceDemoApp />);
+
+    await user.type(screen.getByLabelText("输入想对护理床说的话"), "把靠背升高一点");
+    await user.click(screen.getByRole("button", { name: "发送文字指令" }));
+    expect(await screen.findByText("靠背已升高到 23 度。")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "回到今日概览" }));
+
+    expect(screen.getByRole("heading", { name: "今天，一切都安排好了" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "本次对话" })).toHaveTextContent("把靠背升高一点");
+  });
+
   it("uses one page actor and sends only the latest eight turns as context", async () => {
     const fetchMock = installBedsideApi();
     const user = userEvent.setup();
@@ -526,5 +565,22 @@ describe("bedside voice demo", () => {
 
     expect(await screen.findByText("无法连接护理床 Agent。")).toBeInTheDocument();
     expect(screen.getByLabelText("输入想对护理床说的话")).toHaveValue("今天天气怎么样");
+  });
+
+  it("retries the last failed request without asking the user to type it again", async () => {
+    const fetchMock = installBedsideApi();
+    const user = userEvent.setup();
+    render(<VoiceDemoApp />);
+    await screen.findByText("床体静止 · 安全状态正常");
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+
+    await user.type(screen.getByLabelText("输入想对护理床说的话"), "今天天气怎么样");
+    await user.click(screen.getByRole("button", { name: "发送文字指令" }));
+    expect(await screen.findByText("无法连接护理床 Agent。")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "重新发送刚才的请求" }));
+
+    expect(await screen.findByText("我还不能确定您想做什么，请换一种说法。")).toBeInTheDocument();
+    expect(screen.getByLabelText("输入想对护理床说的话")).toHaveValue("");
   });
 });

@@ -1,8 +1,9 @@
-import { CalendarClock, CheckCircle2, Gauge, MessageCircle, SunMedium } from "lucide-react";
+import { CalendarClock, CheckCircle2, Gauge, LoaderCircle, MessageCircle, SunMedium } from "lucide-react";
 
 import type { DemoOverviewDto, SystemStateDto } from "../../api/types";
 
 interface IdleOverviewProps {
+  loading?: boolean;
   overview: DemoOverviewDto | null;
   systemState: SystemStateDto | null;
 }
@@ -12,7 +13,32 @@ function firstEnabledReminder(overview: DemoOverviewDto | null) {
     ?? overview?.care_coordination.reminders[0];
 }
 
-export default function IdleOverview({ overview, systemState }: IdleOverviewProps) {
+export default function IdleOverview({ loading = false, overview, systemState }: IdleOverviewProps) {
+  if (loading) {
+    return (
+      <section className="idle-overview is-loading" aria-busy="true" aria-labelledby="idle-overview-title">
+        <div className="stage-heading">
+          <div>
+            <span className="section-kicker">今日照护概览</span>
+            <h2 id="idle-overview-title">正在准备今天的照护信息</h2>
+            <p>床体状态与今日安排正在同步。</p>
+          </div>
+          <span className="overview-sync" role="status" aria-label="正在同步床侧状态">
+            <LoaderCircle size={17} />
+            正在同步
+          </span>
+        </div>
+        <div className="overview-loading-block" aria-hidden="true">
+          <span />
+          <div><i /><i /><i /></div>
+        </div>
+        <div className="overview-loading-cards" aria-hidden="true">
+          <span /><span /><span />
+        </div>
+      </section>
+    );
+  }
+
   const reminder = firstEnabledReminder(overview);
   const message = overview?.relationship.voice_messages[0];
   const weather = overview?.daily_life.weather;

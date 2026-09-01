@@ -128,9 +128,12 @@ export default function VoiceDemoApp() {
     : "当前浏览器不支持语音识别，可使用文字输入");
   const [speechStarting, setSpeechStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [initialSyncComplete, setInitialSyncComplete] = useState(false);
   const [agentConnected, setAgentConnected] = useState<boolean | null>(null);
   const [localSpeechAvailable, setLocalSpeechAvailable] = useState<boolean | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [showOverview, setShowOverview] = useState(true);
+  const [lastFailedRequest, setLastFailedRequest] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechErrorRef = useRef(false);
   const pendingSpeechRef = useRef("");
@@ -171,6 +174,7 @@ export default function VoiceDemoApp() {
           ? "本机识别不可用，将使用浏览器语音识别"
           : "当前设备没有可用的语音识别，可使用文字输入");
       }
+      setInitialSyncComplete(true);
     });
 
     return () => {
@@ -188,6 +192,8 @@ export default function VoiceDemoApp() {
     const cleanText = text.trim();
     if (!cleanText || submitting) return;
     setSubmitting(true);
+    setShowOverview(false);
+    setLastFailedRequest(null);
     setSpeechMessage("正在理解您的需要…");
     try {
       const history = toConversationHistory(sessionRef.current);
@@ -205,11 +211,13 @@ export default function VoiceDemoApp() {
       setInterimTranscript("");
       setSpeechMessage("已经处理好，您可以继续说");
       setAgentConnected(true);
+      setLastFailedRequest(null);
       speak(turn.response);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "护理床服务请求失败，请稍后重试。";
       setSpeechMessage(message);
       setAgentConnected(false);
+      setLastFailedRequest(cleanText);
     } finally {
       setSubmitting(false);
     }
@@ -417,21 +425,28 @@ export default function VoiceDemoApp() {
             speechMessage={speechMessage}
             speechStarting={speechStarting}
             submitting={submitting}
+            failedRequest={lastFailedRequest}
             onDraftChange={setDraft}
             onFillExample={fillDraft}
             onOpenGuide={() => setGuideOpen(true)}
+            onRetry={() => void submitInput(lastFailedRequest ?? "")}
             onSubmit={handleSubmit}
             onToggleListening={() => void startOrStopListening()}
           />
 
-          {presentation ? (
+          {presentation && !showOverview ? (
             <ServiceStage
               presentation={presentation}
               onConfirm={() => void submitInput("确认")}
               onCancel={() => void submitInput("取消")}
+              onReturnToOverview={() => setShowOverview(true)}
             />
           ) : (
-            <IdleOverview overview={overview} systemState={systemState} />
+            <IdleOverview
+              loading={!initialSyncComplete}
+              overview={overview}
+              systemState={systemState}
+            />
           )}
         </div>
 

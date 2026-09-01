@@ -15,8 +15,16 @@ const base = {
 function renderStage(presentation: ServicePresentation) {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
-  render(<ServiceStage presentation={presentation} onConfirm={onConfirm} onCancel={onCancel} />);
-  return { onConfirm, onCancel };
+  const onReturnToOverview = vi.fn();
+  render(
+    <ServiceStage
+      presentation={presentation}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+      onReturnToOverview={onReturnToOverview}
+    />,
+  );
+  return { onConfirm, onCancel, onReturnToOverview };
 }
 
 describe("ServiceStage", () => {

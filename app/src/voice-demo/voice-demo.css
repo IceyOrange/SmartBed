@@ -358,6 +358,30 @@ input:focus-visible {
   line-height: 1.45;
 }
 
+.speech-state.is-error {
+  color: #714a34;
+  background: var(--warm-pale);
+}
+
+.speech-state.is-error p {
+  color: #80634f;
+}
+
+.speech-retry {
+  margin: 10px auto 0;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #714a34;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(184, 112, 69, 0.22);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.58);
+  cursor: pointer;
+}
+
 .processing-steps {
   margin-top: 12px;
   display: grid;
@@ -507,6 +531,26 @@ input:focus-visible {
   overflow: hidden;
 }
 
+.stage-return {
+  margin: -5px 0 17px;
+  padding: 5px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--ease), transform var(--ease);
+}
+
+.stage-return:hover {
+  color: var(--brand-dark);
+  transform: translateX(-2px);
+}
+
 .stage-heading {
   align-items: flex-start;
   justify-content: space-between;
@@ -540,6 +584,81 @@ input:focus-visible {
 .safety-chip.is-warning {
   color: var(--danger);
   background: var(--danger-pale);
+}
+
+.overview-sync {
+  padding: 8px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.overview-sync svg {
+  animation: sync-spin 1.15s linear infinite;
+}
+
+.overview-loading-block {
+  min-height: 250px;
+  margin-top: clamp(22px, 3vh, 34px);
+  padding: clamp(26px, 3vw, 46px);
+  display: grid;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(360px, 1fr);
+  align-items: center;
+  gap: 32px;
+  border-radius: 24px;
+  background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px rgba(34, 83, 76, 0.08);
+}
+
+.overview-loading-block > span,
+.overview-loading-block i,
+.overview-loading-cards > span {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  background: #e7efed;
+}
+
+.overview-loading-block > span::after,
+.overview-loading-block i::after,
+.overview-loading-cards > span::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.75) 48%, transparent 76%);
+  transform: translateX(-100%);
+  animation: skeleton-sheen 1.55s ease-in-out infinite;
+}
+
+.overview-loading-block > span {
+  width: min(290px, 78%);
+  height: 76px;
+  border-radius: 18px;
+}
+
+.overview-loading-block > div,
+.overview-loading-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.overview-loading-block i {
+  height: 96px;
+  border-radius: 16px;
+}
+
+.overview-loading-cards {
+  margin-top: clamp(16px, 2.2vh, 24px);
+  gap: 12px;
+}
+
+.overview-loading-cards > span {
+  min-height: 102px;
+  border-radius: 17px;
 }
 
 .posture-summary {
@@ -1684,6 +1803,14 @@ input:focus-visible {
   to { transform: translateX(0); opacity: 1; }
 }
 
+@keyframes sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes skeleton-sheen {
+  to { transform: translateX(100%); }
+}
+
 @keyframes backdrop-enter {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1701,6 +1828,12 @@ input:focus-visible {
   }
 
   .posture-summary {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 28px;
+  }
+
+  .overview-loading-block {
     grid-template-columns: 1fr;
     gap: 22px;
     padding: 28px;
@@ -1725,8 +1858,11 @@ input:focus-visible {
   .voice-listener { min-height: 128px; }
   .voice-mic-button { width: 84px; height: 84px; }
   .posture-summary { min-height: 210px; margin-top: 18px; }
+  .overview-loading-block { min-height: 210px; margin-top: 18px; }
   .overview-cards { margin-top: 14px; }
+  .overview-loading-cards { margin-top: 14px; }
   .overview-cards article { min-height: 84px; }
+  .overview-loading-cards > span { min-height: 84px; }
   .service-stage__content { margin-top: 18px; }
   .care-stage--record blockquote,
   .daily-stage--note blockquote,
@@ -1810,6 +1946,7 @@ input:focus-visible {
   .voice-text-form button { width: 42px; padding: 0; }
   .quick-phrases { display: grid; }
   .posture-summary,
+  .overview-loading-block,
   .bed-control-stage,
   .care-stage--reminder,
   .daily-stage--media {
@@ -1817,7 +1954,9 @@ input:focus-visible {
   }
 
   .posture-metrics,
-  .overview-cards {
+  .overview-cards,
+  .overview-loading-block > div,
+  .overview-loading-cards {
     grid-template-columns: 1fr;
   }
 

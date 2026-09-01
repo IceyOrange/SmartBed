@@ -1,4 +1,4 @@
-import { Activity, CalendarCheck2, HeartHandshake, Home, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, CalendarCheck2, HeartHandshake, Home, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { ServicePresentation } from "../servicePresentation";
@@ -12,6 +12,7 @@ interface ServiceStageProps {
   presentation: ServicePresentation;
   onConfirm: () => void;
   onCancel: () => void;
+  onReturnToOverview: () => void;
 }
 
 const DOMAIN_LABELS = {
@@ -30,7 +31,7 @@ const DOMAIN_ICONS = {
   unknown: Sparkles,
 } as const;
 
-export default function ServiceStage({ presentation, onConfirm, onCancel }: ServiceStageProps) {
+export default function ServiceStage({ presentation, onConfirm, onCancel, onReturnToOverview }: ServiceStageProps) {
   const [secondaryState, setSecondaryState] = useState<"active" | "ended" | "paused" | "cancelled">("active");
   const DomainIcon = DOMAIN_ICONS[presentation.domain];
 
@@ -89,6 +90,10 @@ export default function ServiceStage({ presentation, onConfirm, onCancel }: Serv
 
   return (
     <section className={`service-stage service-stage--${presentation.domain}`} aria-labelledby="service-stage-title">
+      <button type="button" className="stage-return" onClick={onReturnToOverview}>
+        <ArrowLeft size={17} />
+        回到今日概览
+      </button>
       <div className="stage-heading">
         <div>
           <span className="section-kicker"><DomainIcon size={16} />{DOMAIN_LABELS[presentation.domain]}</span>
