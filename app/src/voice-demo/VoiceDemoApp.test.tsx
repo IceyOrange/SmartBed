@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,69 @@ import VoiceDemoApp from "./VoiceDemoApp";
 
 const originalMediaDevices = Object.getOwnPropertyDescriptor(window.navigator, "mediaDevices");
 
+const overview = {
+  care_coordination: {
+    reminders: [{
+      reminder_id: "reminder-1",
+      recipient: "妈妈",
+      scheduled_for: "14:30",
+      message: "翻身护理",
+      created_by: "nurse-1",
+      note: "",
+      status: "upcoming",
+      enabled: true,
+    }],
+    records: [],
+    todos: [{
+      todo_id: "todo-1",
+      title: "测量血压",
+      due: "16:00",
+      status: "待完成",
+      created_by: "nurse-1",
+      created_at: "2026-09-01T09:00:00+08:00",
+    }],
+    notifications: [],
+  },
+  relationship: {
+    calls: [],
+    voice_messages: [{
+      message_id: "message-1",
+      sender: "女儿",
+      recipient: "妈妈",
+      content: "妈，我晚上下班后给您打电话。",
+      status: "unread",
+      created_at: "2026-09-01T09:30:00+08:00",
+      duration_seconds: 12,
+      summary: "女儿晚些时候来电",
+    }],
+    anniversaries: [],
+  },
+  daily_life: {
+    notes: [],
+    weather: {
+      city: "北京",
+      condition: "晴",
+      temperature_c: 26,
+      high_c: 29,
+      low_c: 19,
+      source: "演示天气",
+    },
+    media: { status: "stopped", query: null },
+  },
+};
+
+const systemState = {
+  revision: 1,
+  bed: {
+    backrest_degrees: 18,
+    legrest_degrees: 0,
+    height_cm: 52,
+    moving: false,
+    last_action: null,
+    fault: null,
+  },
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -14,10 +77,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function resultFor(
-  text: string,
-  status: AgentResultDto["status"] = "completed",
-): AgentResultDto {
+function resultFor(text: string, status: AgentResultDto["status"] = "completed"): AgentResultDto {
   let interpretation: AgentInterpretationDto = {
     kind: "unknown",
     target: null,
@@ -28,6 +88,7 @@ function resultFor(
   };
   let message = "我还不能确定您想做什么，请换一种说法。";
   let code = "unknown_intent";
+  let data: Record<string, unknown> = {};
   if (text.includes("靠背")) {
     interpretation = {
       kind: "bed_adjust",
@@ -37,8 +98,9 @@ function resultFor(
       confidence: 0.97,
       utterance_type: "command",
     };
-    message = "床体调节已完成。";
+    message = "靠背已升高到 23 度。";
     code = "completed";
+    data = { bed: { ...systemState.bed, backrest_degrees: 23 } };
   } else if (text.includes("放平") || text === "确认") {
     interpretation = {
       kind: "bed_scene",
@@ -50,8 +112,9 @@ function resultFor(
     };
     message = status === "needs_confirmation"
       ? "这是幅度较大的床体动作，请确认是否执行。"
-      : "床体调节已完成。";
+      : "床体已调整为舒适平躺。";
     code = status === "needs_confirmation" ? "confirmation_required" : "completed";
+    data = { bed: { ...systemState.bed, backrest_degrees: 0 } };
   } else if (text.includes("打电话")) {
     interpretation = {
       kind: "live_call",
@@ -63,6 +126,7 @@ function resultFor(
     };
     message = "正在联系女儿。";
     code = "call_started";
+    data = { call: { contact: "女儿", status: "calling" } };
   } else if (text.includes("留言")) {
     interpretation = {
       kind: "voice_message",
@@ -74,6 +138,7 @@ function resultFor(
     };
     message = "这是女儿的留言。";
     code = "voice_message_playing";
+    data = { voice_message: overview.relationship.voice_messages[0] };
   } else if (text.includes("京剧")) {
     interpretation = {
       kind: "media",
@@ -85,15 +150,22 @@ function resultFor(
     };
     message = "正在播放京剧。";
     code = "media_playing";
+    data = { playback: { query: "京剧", status: "playing" } };
   }
   return {
-    event_id: `event-${text}`,
+    event_id: `event-${text}-${Math.random()}`,
     path: "agent",
     status,
     code,
     message,
-    data: { interpretation },
+    data: { ...data, interpretation },
   };
+}
+
+interface BedsideRequestBody {
+  text: string;
+  actor_id: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 function installBedsideApi({
@@ -109,6 +181,8 @@ function installBedsideApi({
     if (url.endsWith("/api/v1/health")) {
       return jsonResponse({ status: "ok", service: "care-bed-agent" });
     }
+    if (url.endsWith("/api/v1/state")) return jsonResponse(systemState);
+    if (url.endsWith("/api/v1/demo/overview")) return jsonResponse(overview);
     if (url.endsWith("/api/v1/speech/status")) {
       return jsonResponse({
         available: speechAvailable,
@@ -126,7 +200,7 @@ function installBedsideApi({
         language: "zh-CN",
       });
     }
-    const body = JSON.parse(String(init?.body)) as { text: string };
+    const body = JSON.parse(String(init?.body)) as BedsideRequestBody;
     if (body.text.includes("放平")) {
       pendingConfirmation = true;
       return jsonResponse(resultFor(body.text, "needs_confirmation"));
@@ -139,6 +213,12 @@ function installBedsideApi({
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function bedsideRequests(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls
+    .filter(([input]) => String(input).endsWith("/api/v1/bedside/messages"))
+    .map(([, init]) => JSON.parse(String((init as RequestInit | undefined)?.body)) as BedsideRequestBody);
 }
 
 describe("bedside voice demo", () => {
@@ -154,52 +234,145 @@ describe("bedside voice demo", () => {
     } else {
       delete (window.navigator as unknown as { mediaDevices?: MediaDevices }).mediaDevices;
     }
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("explains the Agent result in plain language", async () => {
-    const user = userEvent.setup();
+  it("shows a calm daily overview instead of a bed drawing or capability wall", async () => {
     render(<VoiceDemoApp />);
 
-    expect(screen.getByText("智能护理床中控 Agent")).toBeInTheDocument();
-    expect(screen.getByText(/可使用文字输入/)).toBeInTheDocument();
-    expect(await screen.findByText("Agent 已连接")).toBeInTheDocument();
-    await user.type(screen.getByLabelText("输入想对护理床说的话"), "把靠背升高一点");
-    await user.click(screen.getByRole("button", { name: "发送文字指令" }));
-
-    expect(await screen.findByText("Agent 听懂了")).toBeInTheDocument();
-    expect(screen.getByText("你想把护理床靠背升高一点。")).toBeInTheDocument();
-    expect(screen.getByText("调用的功能")).toBeInTheDocument();
-    expect(screen.getByText("调节护理床靠背。")).toBeInTheDocument();
-    expect(screen.getByText("处理结果")).toBeInTheDocument();
-    expect(screen.getByText("床体调节已完成。")).toBeInTheDocument();
-    expect(screen.queryByText("功能域")).not.toBeInTheDocument();
-    expect(screen.queryByText("置信度")).not.toBeInTheDocument();
-    expect(screen.queryByText("任务编排")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "需要什么帮助？" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "今天，一切都安排好了" })).toBeInTheDocument();
+    expect(screen.getByText("床体静止 · 安全状态正常")).toBeInTheDocument();
+    expect(screen.getByText("14:30 · 翻身护理")).toBeInTheDocument();
+    expect(screen.getByText("女儿的新留言")).toBeInTheDocument();
+    expect(screen.getByText("北京 · 晴 26℃")).toBeInTheDocument();
+    expect(screen.queryByText("中控 Agent 能做什么")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /护理床|床体/ })).not.toBeInTheDocument();
   });
 
-  it("fills an example into the input and waits for send", async () => {
+  it("keeps examples inside a closable guide and only fills the text field", async () => {
+    const fetchMock = installBedsideApi();
     const user = userEvent.setup();
     render(<VoiceDemoApp />);
 
-    await user.click(screen.getAllByRole("button", { name: "示例：给女儿打电话" })[0]);
+    expect(screen.queryByRole("dialog", { name: "演示指南" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "打开演示指南" }));
+    const guide = screen.getByRole("dialog", { name: "演示指南" });
+    expect(within(guide).getByRole("heading", { name: "试着这样说" })).toBeInTheDocument();
+
+    await user.click(within(guide).getByRole("button", { name: "示例：给女儿打电话" }));
     expect(screen.getByLabelText("输入想对护理床说的话")).toHaveValue("给女儿打电话");
-    expect(screen.queryByText("正在联系女儿。")).not.toBeInTheDocument();
+    expect(bedsideRequests(fetchMock)).toHaveLength(0);
 
-    await user.click(screen.getByRole("button", { name: "发送文字指令" }));
-    expect(await screen.findByText("正在联系女儿。")).toBeInTheDocument();
+    await user.click(within(guide).getByRole("button", { name: "关闭演示指南" }));
+    expect(screen.queryByRole("dialog", { name: "演示指南" })).not.toBeInTheDocument();
   });
 
-  it("fills a capability-card example without submitting it", async () => {
+  it("uses one page actor and sends only the latest eight turns as context", async () => {
+    const fetchMock = installBedsideApi();
     const user = userEvent.setup();
     render(<VoiceDemoApp />);
+    const input = screen.getByLabelText("输入想对护理床说的话");
+    const send = screen.getByRole("button", { name: "发送文字指令" });
 
-    await user.click(screen.getByRole("button", { name: "示例：听听女儿的留言" }));
-    expect(screen.getByLabelText("输入想对护理床说的话")).toHaveValue("听听女儿的留言");
-    expect(screen.queryByText("这是女儿的留言。")).not.toBeInTheDocument();
+    for (let index = 1; index <= 10; index += 1) {
+      await user.type(input, `第${index}条`);
+      await user.click(send);
+      await waitFor(() => expect(input).toHaveValue(""));
+    }
+
+    const requests = bedsideRequests(fetchMock);
+    expect(requests).toHaveLength(10);
+    expect(requests[0].actor_id).toMatch(/^voice-session-[0-9a-f-]{36}$/i);
+    expect(new Set(requests.map((request) => request.actor_id)).size).toBe(1);
+    expect(requests[0].history).toBeUndefined();
+    expect(requests[1].history).toEqual([
+      { role: "user", content: "第1条" },
+      { role: "assistant", content: "我还不能确定您想做什么，请换一种说法。" },
+    ]);
+    expect(requests[9].history).toHaveLength(16);
+    expect(requests[9].history?.[0]).toEqual({ role: "user", content: "第2条" });
+    expect(requests[9].history?.[15]).toEqual({
+      role: "assistant",
+      content: "我还不能确定您想做什么，请换一种说法。",
+    });
+    expect(screen.getByRole("region", { name: "本次对话" })).toBeInTheDocument();
   });
 
-  it("confirms a protected bed action through Agent", async () => {
+  it("starts and stops browser speech with Space outside editable controls", async () => {
+    const start = vi.fn();
+    const stop = vi.fn();
+    class ManualRecognition {
+      lang = "";
+      continuous = false;
+      interimResults = false;
+      onstart: (() => void) | null = null;
+      onaudiostart = null;
+      onsoundstart = null;
+      onspeechstart = null;
+      onend: (() => void) | null = null;
+      onresult = null;
+      onnomatch = null;
+      onerror = null;
+
+      start() {
+        start();
+        this.onstart?.();
+      }
+
+      stop() {
+        stop();
+        this.onend?.();
+      }
+
+      abort() {}
+    }
+    window.SpeechRecognition = ManualRecognition as unknown as NonNullable<typeof window.SpeechRecognition>;
+    render(<VoiceDemoApp />);
+    await screen.findByText("点击麦克风或按空格键开始说话");
+
+    fireEvent.keyDown(document.body, { key: " ", code: "Space" });
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "停止语音识别" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: " ", code: "Space" });
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores the Space shortcut while an input or button has focus", async () => {
+    const start = vi.fn();
+    class ManualRecognition {
+      lang = "";
+      continuous = false;
+      interimResults = false;
+      onstart = null;
+      onaudiostart = null;
+      onsoundstart = null;
+      onspeechstart = null;
+      onend = null;
+      onresult = null;
+      onnomatch = null;
+      onerror = null;
+      start = start;
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = ManualRecognition as unknown as NonNullable<typeof window.SpeechRecognition>;
+    render(<VoiceDemoApp />);
+    await screen.findByText("点击麦克风或按空格键开始说话");
+
+    const input = screen.getByLabelText("输入想对护理床说的话");
+    input.focus();
+    fireEvent.keyDown(input, { key: " ", code: "Space" });
+    const guideButton = screen.getByRole("button", { name: "打开演示指南" });
+    guideButton.focus();
+    fireEvent.keyDown(guideButton, { key: " ", code: "Space" });
+
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("confirms a protected bed action through the same Agent path", async () => {
     const user = userEvent.setup();
     render(<VoiceDemoApp />);
 
@@ -208,17 +381,21 @@ describe("bedside voice demo", () => {
     expect(await screen.findByText("这是幅度较大的床体动作，请确认是否执行。")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "确认执行" }));
-    expect(await screen.findByText("床体调节已完成。")).toBeInTheDocument();
+    expect(await screen.findByText("床体已调整为舒适平躺。")).toBeInTheDocument();
   });
 
-  it("submits a final microphone transcript automatically", async () => {
+  it("submits a final browser transcript automatically", async () => {
     class FakeRecognition {
       lang = "";
       continuous = false;
       interimResults = false;
       onstart: (() => void) | null = null;
+      onaudiostart = null;
+      onsoundstart = null;
+      onspeechstart = null;
       onend: (() => void) | null = null;
       onresult: ((event: never) => void) | null = null;
+      onnomatch = null;
       onerror: ((event: { error: string }) => void) | null = null;
 
       start() {
@@ -240,10 +417,9 @@ describe("bedside voice demo", () => {
     await user.click(screen.getByRole("button", { name: "开始语音识别" }));
 
     expect(await screen.findByText("正在播放京剧。")).toBeInTheDocument();
-    expect(screen.getByText("你想播放京剧。")).toBeInTheDocument();
   });
 
-  it("uses Agent local speech recognition before the browser and submits it automatically", async () => {
+  it("uses local speech recognition before the browser", async () => {
     const fetchMock = installBedsideApi({ speechAvailable: true, speechText: "播放京剧" });
     const browserStart = vi.fn();
     class FakeRecognition {
@@ -251,8 +427,12 @@ describe("bedside voice demo", () => {
       continuous = false;
       interimResults = false;
       onstart = null;
+      onaudiostart = null;
+      onsoundstart = null;
+      onspeechstart = null;
       onend = null;
       onresult = null;
+      onnomatch = null;
       onerror = null;
       start = browserStart;
       stop() {}
@@ -262,11 +442,10 @@ describe("bedside voice demo", () => {
     const user = userEvent.setup();
     render(<VoiceDemoApp />);
 
-    expect(await screen.findByText("本机中文语音识别已就绪，点击麦克风开始说话")).toBeInTheDocument();
+    expect(await screen.findByText("本机中文语音识别已就绪，点击麦克风或按空格键开始说话")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "开始语音识别" }));
 
     expect(await screen.findByText("正在播放京剧。")).toBeInTheDocument();
-    expect(screen.getByText("你想播放京剧。")).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/api/v1/speech/recognize"))).toBe(true);
     expect(browserStart).not.toHaveBeenCalled();
   });
@@ -277,8 +456,12 @@ describe("bedside voice demo", () => {
       continuous = false;
       interimResults = false;
       onstart: (() => void) | null = null;
+      onaudiostart = null;
+      onsoundstart = null;
+      onspeechstart = null;
       onend: (() => void) | null = null;
-      onresult: ((event: never) => void) | null = null;
+      onresult = null;
+      onnomatch = null;
       onerror: ((event: { error: string }) => void) | null = null;
 
       start() {
@@ -297,19 +480,22 @@ describe("bedside voice demo", () => {
     await user.click(screen.getByRole("button", { name: "开始语音识别" }));
 
     expect(await screen.findByText("没有听清，请靠近麦克风再说一次")).toBeInTheDocument();
-    expect(screen.queryByText("点击麦克风再次说话，也可使用文字输入")).not.toBeInTheDocument();
   });
 
-  it("requests microphone permission before starting recognition", async () => {
+  it("requests microphone permission before browser recognition", async () => {
     const start = vi.fn();
     class FakeRecognition {
       lang = "";
       continuous = false;
       interimResults = false;
-      onstart: (() => void) | null = null;
-      onend: (() => void) | null = null;
-      onresult: ((event: never) => void) | null = null;
-      onerror: ((event: { error: string }) => void) | null = null;
+      onstart = null;
+      onaudiostart = null;
+      onsoundstart = null;
+      onspeechstart = null;
+      onend = null;
+      onresult = null;
+      onnomatch = null;
+      onerror = null;
       start = start;
       stop() {}
       abort() {}
@@ -330,7 +516,7 @@ describe("bedside voice demo", () => {
     expect(start).not.toHaveBeenCalled();
   });
 
-  it("keeps the text and shows a connection error when Agent is unavailable", async () => {
+  it("keeps the text and shows a connection error when the service is unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
     const user = userEvent.setup();
     render(<VoiceDemoApp />);
