@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Mapping
+from typing import Mapping, Sequence
 
 from .intents import Intent, IntentInterpretationError, IntentKind
 from .llm import ChatModel, GlmClientError, GlmNotConfiguredError
@@ -26,6 +26,7 @@ send_greeting，today_agenda=list，weather/information=query，media=play，com
 companion 必须在 parameters.reply 中同时给出一句温暖、简短、不涉及医疗判断的中文回复。
 只有用户明确要求执行当前已支持的操作时 should_execute=true。否定、拒绝、假设、转述、
 讨论功能、信息不足、医疗诊断、用药调整或未支持操作必须 should_execute=false，并优先输出 unknown。
+历史消息仅用于理解指代和连续表达，只有最后一条用户消息可以触发动作。
 不要声称已经执行，不要输出 Markdown 或解释。
 """.strip()
 
@@ -59,7 +60,11 @@ companion 必须在 parameters.reply 中同时给出一句温暖、简短、不�
         self._model = model
         self._minimum_confidence = minimum_confidence
 
-    def interpret(self, text: str) -> Intent:
+    def interpret(
+        self,
+        text: str,
+        history: Sequence[Mapping[str, str]] = (),
+    ) -> Intent:
         if not text.strip():
             return self._unknown(text)
         if self._model is None:
@@ -69,9 +74,16 @@ companion 必须在 parameters.reply 中同时给出一句温暖、简短、不�
             )
 
         try:
+            context = [
+                {"role": message["role"], "content": message["content"]}
+                for message in history
+                if message.get("role") in {"user", "assistant"}
+                and isinstance(message.get("content"), str)
+            ]
             response = self._model.complete(
                 [
                     {"role": "system", "content": self._SYSTEM_PROMPT},
+                    *context,
                     {"role": "user", "content": text},
                 ],
                 response_format="json_object",

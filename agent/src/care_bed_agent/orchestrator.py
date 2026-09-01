@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Mapping, Sequence
+
 from .intents import (
     ConversationContextStore,
     IntentInterpretationError,
@@ -32,6 +34,7 @@ class AgentOrchestrator:
         text: str,
         actor_id: str,
         source: EventSource = EventSource.VOICE,
+        history: Sequence[Mapping[str, str]] = (),
     ) -> ExecutionResult:
         normalized = text.strip()
         if normalized in self._CONFIRMATIONS:
@@ -54,7 +57,7 @@ class AgentOrchestrator:
             )
 
         try:
-            interpreted = self._interpreter.interpret(text)
+            interpreted = self._interpreter.interpret(text, history)
         except IntentInterpretationError as error:
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,

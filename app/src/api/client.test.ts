@@ -49,6 +49,37 @@ describe("Agent API client", () => {
     await expect(api.sendBedsideMessage("今天天气怎么样", "elder-1")).resolves.toEqual(payload);
   });
 
+  it("sends bounded page conversation context with a bedside request", async () => {
+    const payload: AgentResultDto = {
+      event_id: "event-2",
+      path: "agent",
+      status: "completed",
+      code: "weather_reported",
+      message: "北京今天晴，当前26摄氏度。",
+      data: {},
+    };
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(payload));
+    const api = createAgentApi({ fetchImpl, timeoutMs: 1000 });
+    const history = [
+      { role: "user" as const, content: "把靠背升高一点" },
+      { role: "assistant" as const, content: "靠背已经升高。" },
+    ];
+
+    await api.sendBedsideMessage("今天天气怎么样", "voice-session-123", history);
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/v1/bedside/messages",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          text: "今天天气怎么样",
+          actor_id: "voice-session-123",
+          history,
+        }),
+      }),
+    );
+  });
+
   it("normalizes non-Agent HTTP failures", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ code: "unavailable", message: "服务不可用" }), {

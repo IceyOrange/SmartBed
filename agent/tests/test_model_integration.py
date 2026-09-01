@@ -62,6 +62,27 @@ class AiIntentInterpreterTests(unittest.TestCase):
         self.assertEqual(1, len(model.calls))
         self.assertEqual("json_object", model.calls[0][1])
 
+    def test_recent_conversation_precedes_the_current_user_request(self) -> None:
+        model = FakeChatModel(
+            intent_json("weather", action="query", utterance_type="query")
+        )
+        interpreter = AiIntentInterpreter(model=model)
+        history = (
+            {"role": "user", "content": "把靠背升高一点"},
+            {"role": "assistant", "content": "靠背已经升高。"},
+        )
+
+        interpreter.interpret("今天天气怎么样", history=history)
+
+        self.assertEqual(
+            [
+                {"role": "user", "content": "把靠背升高一点"},
+                {"role": "assistant", "content": "靠背已经升高。"},
+                {"role": "user", "content": "今天天气怎么样"},
+            ],
+            model.calls[0][0][-3:],
+        )
+
     def test_model_maps_natural_expression_to_structured_intent(self) -> None:
         model = FakeChatModel(
             intent_json(

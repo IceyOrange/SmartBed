@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from threading import RLock
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, Sequence
 
 
 class IntentKind(StrEnum):
@@ -47,7 +47,11 @@ class IntentInterpretationError(RuntimeError):
 
 
 class IntentInterpreter(Protocol):
-    def interpret(self, text: str) -> Intent: ...
+    def interpret(
+        self,
+        text: str,
+        history: Sequence[Mapping[str, str]] = (),
+    ) -> Intent: ...
 
 
 @dataclass(frozen=True, slots=True)

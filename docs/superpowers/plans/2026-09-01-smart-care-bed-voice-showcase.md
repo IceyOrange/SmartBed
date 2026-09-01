@@ -43,29 +43,29 @@
 - Produces: optional `history: Array<{ role: "user" | "assistant"; content: string }>` accepted by bedside messages and forwarded to `IntentInterpreter.interpret(text, history)`.
 - Produces: `agentApi.sendBedsideMessage(text, actorId, history)` with history omitted when empty.
 
-- [ ] **Step 1: Write failing API validation tests**
+- [x] **Step 1: Write failing API validation tests**
 
 Add tests proving that valid history is accepted, malformed roles/content are rejected with `invalid_request`, and history is capped at sixteen messages with bounded content length.
 
-- [ ] **Step 2: Run the focused backend tests**
+- [x] **Step 2: Run the focused backend tests**
 
 Run: `cd agent; $env:PYTHONDONTWRITEBYTECODE="1"; $env:PYTHONPATH="src"; python -B -m unittest tests.test_api tests.test_model_integration -v`
 
 Expected: FAIL because message history is neither validated nor forwarded.
 
-- [ ] **Step 3: Extend the interpreter contract**
+- [x] **Step 3: Extend the interpreter contract**
 
 Update `IntentInterpreter.interpret` and `AiIntentInterpreter.interpret` to accept a sequence of prior chat messages. Build the model request as system prompt, sanitized prior messages in chronological order, then the current user message. Add an explicit system rule that prior turns are context only and only the final user message may trigger an action.
 
-- [ ] **Step 4: Forward validated history through the Agent path**
+- [x] **Step 4: Forward validated history through the Agent path**
 
 Validate role/content at `AgentApi`, copy normalized history into `IncomingEvent.payload`, then pass it through `CareBedSystem` and `AgentOrchestrator`. Confirmation/cancellation remains deterministic and must not call the model.
 
-- [ ] **Step 5: Extend and test the frontend client contract**
+- [x] **Step 5: Extend and test the frontend client contract**
 
 Add `ConversationMessageDto`; update the client request body; assert request JSON contains `actor_id`, current `text`, and bounded `history` without changing family-app calls.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run: backend command from Step 2, then `npm --prefix app run test:run -- src/api/client.test.ts`.
 

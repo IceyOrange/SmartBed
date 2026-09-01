@@ -129,6 +129,11 @@ export interface AgentInterpretationDto {
   utterance_type: string;
 }
 
+export interface ConversationMessageDto {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface AgentResultDto {
   event_id: string;
   path: "direct" | "rule" | "agent" | "observe";

@@ -1,6 +1,7 @@
 import type {
   AgentResultDto,
   CallSessionDto,
+  ConversationMessageDto,
   CreateReminderInput,
   DemoOverviewDto,
   HealthDto,
@@ -144,10 +145,18 @@ export function createAgentApi({
         method: "POST",
         body: JSON.stringify({ text, actor_id: actorId }),
       }, true),
-    sendBedsideMessage: (text: string, actorId = "elder-1") =>
+    sendBedsideMessage: (
+      text: string,
+      actorId = "elder-1",
+      history: ConversationMessageDto[] = [],
+    ) =>
       request<AgentResultDto>("/api/v1/bedside/messages", {
         method: "POST",
-        body: JSON.stringify({ text, actor_id: actorId }),
+        body: JSON.stringify({
+          text,
+          actor_id: actorId,
+          ...(history.length ? { history: history.slice(-16) } : {}),
+        }),
       }, true),
   };
 }

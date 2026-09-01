@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Mapping, Sequence, cast
+
 from .direct_control import DirectControlHandler
 from .domain_tools import (
     InMemoryAnniversaryStore,
@@ -101,8 +103,13 @@ class CareBedSystem:
                 code="missing_text",
                 message="自然语言请求不能为空。",
             )
+        history = cast(
+            Sequence[Mapping[str, str]],
+            event.payload.get("history", ()),
+        )
         return self._agent.handle_text(
             text,
             actor_id=event.actor_id or "bed-user",
             source=event.source,
+            history=history,
         )

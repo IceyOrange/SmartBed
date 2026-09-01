@@ -185,16 +185,44 @@ class AgentApi:
         text = body.get("text")
         if not isinstance(text, str) or not text.strip():
             return self._invalid("text 必须是非空字符串。")
+        history = self._conversation_history(body.get("history", []))
+        if isinstance(history, ApiResponse):
+            return history
 
         result = self._system.handle_event(
             IncomingEvent(
                 kind=kind,
                 source=source,
                 actor_id=self._optional_string(body.get("actor_id")) or default_actor_id,
-                payload={"text": text},
+                payload={"text": text, "history": history},
             )
         )
         return ApiResponse(self._status_for(result), self._result_body(result))
+
+    @classmethod
+    def _conversation_history(
+        cls,
+        value: object,
+    ) -> list[dict[str, str]] | ApiResponse:
+        if not isinstance(value, list):
+            return cls._invalid("history 必须是消息数组。")
+        if len(value) > 16:
+            return cls._invalid("history 最多包含 16 条消息。")
+
+        history: list[dict[str, str]] = []
+        for message in value:
+            if not isinstance(message, Mapping):
+                return cls._invalid("history 中的消息格式不正确。")
+            role = message.get("role")
+            content = message.get("content")
+            if role not in {"user", "assistant"}:
+                return cls._invalid("history role 只能是 user 或 assistant。")
+            if not isinstance(content, str) or not content.strip():
+                return cls._invalid("history content 必须是非空字符串。")
+            if len(content) > 500:
+                return cls._invalid("history content 不能超过 500 个字符。")
+            history.append({"role": str(role), "content": content.strip()})
+        return history
 
     @classmethod
     def _validate_reminder_fields(
