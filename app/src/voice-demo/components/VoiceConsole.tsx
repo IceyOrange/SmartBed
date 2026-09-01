@@ -75,45 +75,47 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
         </button>
       </div>
 
-      <div className={`voice-listener${listening ? " is-listening" : ""}${speechStarting ? " is-starting" : ""}`}>
-        <div className="voice-wave" aria-hidden="true">
-          {Array.from({ length: 7 }, (_, index) => <span key={index} />)}
-        </div>
-        <button
-          type="button"
-          className="voice-mic-button"
-          aria-label={speechStarting ? "正在识别语音" : listening ? "停止语音识别" : "开始语音识别"}
-          aria-pressed={listening}
-          disabled={busy}
-          onClick={onToggleListening}
-        >
-          {listening ? <MicOff size={34} /> : <Mic size={34} />}
-        </button>
-      </div>
-
-      <div className={`speech-state${failedRequest ? " is-error" : ""}`} aria-live="polite">
-        <strong>{failedRequest ? "这次请求没有发送成功" : stateTitle({ latestTurn, listening, speechStarting, submitting })}</strong>
-        <p>{interimTranscript ? `“${interimTranscript}”` : speechMessage}</p>
-        {failedRequest && !submitting ? (
-          <button type="button" className="speech-retry" aria-label="重新发送刚才的请求" onClick={onRetry}>
-            <RotateCcw size={15} />
-            重新发送
+      <div className={`voice-session${listening ? " is-listening" : ""}${submitting ? " is-processing" : ""}${failedRequest ? " is-error" : ""}`}>
+        <div className={`voice-listener${listening ? " is-listening" : ""}${speechStarting ? " is-starting" : ""}`}>
+          <div className="voice-wave" aria-hidden="true">
+            {Array.from({ length: 7 }, (_, index) => <span key={index} />)}
+          </div>
+          <button
+            type="button"
+            className="voice-mic-button"
+            aria-label={speechStarting ? "正在识别语音" : listening ? "停止语音识别" : "开始语音识别"}
+            aria-pressed={listening}
+            disabled={busy}
+            onClick={onToggleListening}
+          >
+            {listening ? <MicOff size={34} /> : <Mic size={34} />}
           </button>
+        </div>
+
+        <div className={`speech-state${failedRequest ? " is-error" : ""}`} aria-live="polite">
+          <strong>{failedRequest ? "这次请求没有发送成功" : stateTitle({ latestTurn, listening, speechStarting, submitting })}</strong>
+          <p>{interimTranscript ? `“${interimTranscript}”` : speechMessage}</p>
+          {failedRequest && !submitting ? (
+            <button type="button" className="speech-retry" aria-label="重新发送刚才的请求" onClick={onRetry}>
+              <RotateCcw size={15} />
+              重新发送
+            </button>
+          ) : null}
+        </div>
+
+        {submitting ? (
+          <div className="processing-steps" aria-label="正在处理">
+            <span className="is-complete">已听见</span>
+            <span className="is-active">理解需要</span>
+            <span>安全处理</span>
+          </div>
+        ) : latestTurn ? (
+          <div className="voice-response">
+            <AudioLines size={18} aria-hidden="true" />
+            <p>“{latestTurn.userText}”</p>
+          </div>
         ) : null}
       </div>
-
-      {submitting ? (
-        <div className="processing-steps" aria-label="正在处理">
-          <span className="is-complete">已听见</span>
-          <span className="is-active">理解需要</span>
-          <span>安全处理</span>
-        </div>
-      ) : latestTurn ? (
-        <div className="voice-response">
-          <AudioLines size={18} aria-hidden="true" />
-          <p>“{latestTurn.userText}”</p>
-        </div>
-      ) : null}
 
       <form className="voice-text-form" onSubmit={onSubmit}>
         <Keyboard size={19} aria-hidden="true" />
