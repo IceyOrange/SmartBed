@@ -305,10 +305,10 @@
     "/api/v1/bedside/messages": {
       "post": {
         "summary": "发送床侧自然语言请求",
-        "description": "请求固定标记为床侧语音来源，并经过确认、安全策略和确定性床控。",
+        "description": "请求固定标记为床侧语音来源，并经过确认、安全策略和确定性床控。可附带最多 16 条页面内短期上下文；历史只用于理解当前 text，不会被重新执行。",
         "requestBody": {
           "required": true,
-          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AgentMessageRequest"}}}
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BedsideMessageRequest"}}}
         },
         "responses": {
           "200": {"description": "Agent 已处理、请求确认或请求补充信息"},
@@ -631,6 +631,28 @@
         "properties": {
           "actor_id": {"type": "string"},
           "text": {"type": "string", "minLength": 1}
+        }
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": {"type": "string", "enum": ["user", "assistant"]},
+          "content": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "additionalProperties": false
+      },
+      "BedsideMessageRequest": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "actor_id": {"type": "string"},
+          "text": {"type": "string", "minLength": 1},
+          "history": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {"$ref": "#/components/schemas/ConversationMessage"}
+          }
         }
       },
       "AgentResult": {
