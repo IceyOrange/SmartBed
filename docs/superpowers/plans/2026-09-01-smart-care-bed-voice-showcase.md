@@ -89,29 +89,29 @@ Commit: `feat: add page-scoped conversation context`
 - Produces: `DemoTurn` retaining `code`, structured result data, user text, response, domain, label, and status.
 - Produces: `toServicePresentation(turn): ServicePresentation`, a discriminated union for `bed`, `reminder`, `record`, `emergency`, `todo`, `call`, `message`, `anniversary`, `agenda`, `weather`, `note`, `companion`, `media`, `confirmation`, `clarification`, and `restricted` states.
 
-- [ ] **Step 1: Write failing presentation-mapping tests**
+- [x] **Step 1: Write failing presentation-mapping tests**
 
 Cover representative backend codes from every requested function, plus confirmation, unknown intent, medical restriction, and missing optional data.
 
-- [ ] **Step 2: Run the mapper tests**
+- [x] **Step 2: Run the mapper tests**
 
 Run: `npm --prefix app run test:run -- src/voice-demo/servicePresentation.test.ts src/api/adapters.test.ts`
 
 Expected: FAIL because the presentation model does not exist.
 
-- [ ] **Step 3: Introduce focused view-model types**
+- [x] **Step 3: Introduce focused view-model types**
 
 Move only shared domain, turn, session, and demonstration-example types into `model.ts`. Define the presentation union with display-ready values and no React elements.
 
-- [ ] **Step 4: Implement code-driven mapping**
+- [x] **Step 4: Implement code-driven mapping**
 
 Map backend codes and structured payloads to user-facing component state. Use safe fallback values for incomplete demo payloads; never infer actions from the original Chinese text.
 
-- [ ] **Step 5: Remove the unused keyword engine**
+- [x] **Step 5: Remove the unused keyword engine**
 
 Update imports in the adapter and app, remove local recognition and simulated execution functions, and preserve only the curated demonstration utterances in `model.ts`.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run the command from Step 2.
 

@@ -30,7 +30,7 @@ import {
   type DemoSessionState,
   type DemoTurn,
   type VoiceDomain,
-} from "./intentEngine";
+} from "./model";
 
 interface SpeechAlternativeLike {
   transcript: string;

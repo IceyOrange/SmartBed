@@ -6,7 +6,7 @@ import type {
   IntentSlots,
   TurnStatus,
   VoiceDomain,
-} from "../voice-demo/intentEngine";
+} from "../voice-demo/model";
 import type {
   AgentInterpretationDto,
   AgentResultDto,
@@ -233,6 +233,8 @@ export function toDemoTurn(userText: string, result: AgentResultDto): DemoTurn {
   };
   return {
     id: result.event_id,
+    code: result.code,
+    data: result.data,
     userText,
     response: result.message,
     status: turnStatus(result),

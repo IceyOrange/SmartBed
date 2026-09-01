@@ -137,6 +137,8 @@ describe("Agent DTO adapters", () => {
 
     expect(toDemoTurn("把靠背大幅升高", result)).toMatchObject({
       id: "event-1",
+      code: "confirmation_required",
+      data: result.data,
       status: "awaiting-confirmation",
       response: result.message,
       match: {
