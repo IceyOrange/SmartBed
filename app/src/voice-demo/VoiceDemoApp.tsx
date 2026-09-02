@@ -4,7 +4,6 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { toDemoTurn } from "../api/adapters";
 import { agentApi, ApiError } from "../api/client";
 import type { ConversationMessageDto, DemoOverviewDto, SystemStateDto } from "../api/types";
-import ConversationStrip from "./components/ConversationStrip";
 import DemoGuide from "./components/DemoGuide";
 import IdleOverview from "./components/IdleOverview";
 import ServiceStage from "./components/ServiceStage";
@@ -212,7 +211,7 @@ export default function VoiceDemoApp() {
     setSubmitting(true);
     setShowOverview(false);
     setLastFailedRequest(null);
-    setSpeechMessage("正在理解您的需要…");
+    setSpeechMessage("正在处理…");
     try {
       const history = toConversationHistory(sessionRef.current);
       const result = await agentApi.sendBedsideMessage(cleanText, actorId, history);
@@ -227,7 +226,7 @@ export default function VoiceDemoApp() {
       setSession(nextState);
       setDraft("");
       setInterimTranscript("");
-      setSpeechMessage("已经处理好，您可以继续说");
+      setSpeechMessage("已经处理好，可以继续说");
       setAgentConnected(true);
       setLastFailedRequest(null);
       speak(turn.response);
@@ -419,14 +418,14 @@ export default function VoiceDemoApp() {
       <header className="voice-demo-header">
         <div className="voice-brand">
           <span className="voice-brand-mark"><AudioLines size={22} /></span>
-          <div><strong>安心智能护理床</strong><span>床侧生活服务</span></div>
+          <div><strong>安心护理床</strong><span>床侧生活服务</span></div>
         </div>
         <div className="voice-header-meta">
           <span className="header-time">{currentTime}</span>
-          <span className="demo-state">演示模式</span>
+          <span className="room-state">卧室 · {overview?.daily_life.weather.temperature_c ?? "--"}℃</span>
           <span className={`service-state${agentConnected === false ? " is-disconnected" : ""}`}>
             <ShieldCheck size={16} />
-            {agentConnected === null ? "正在连接" : agentConnected ? "服务正常" : "服务未连接"}
+            {agentConnected === null ? "正在连接" : agentConnected ? "设备运行正常" : "服务未连接"}
           </span>
         </div>
       </header>
@@ -438,6 +437,7 @@ export default function VoiceDemoApp() {
             inputRef={inputRef}
             interimTranscript={interimTranscript}
             latestTurn={latestTurn}
+            turns={session.turns}
             listening={listening}
             speechMessage={speechMessage}
             speechStarting={speechStarting}
@@ -468,12 +468,11 @@ export default function VoiceDemoApp() {
           )}
         </div>
 
-        <ConversationStrip turns={session.turns} />
       </main>
 
       <footer className="voice-demo-footer">
-        <span><CircleAlert size={16} />床体、通话、天气与护理服务均为演示模拟</span>
-        <span>如需医疗判断，请联系专业医护人员</span>
+        <span><CircleAlert size={15} />这是护理床的演示界面，不替代专业医疗判断</span>
+        <span>语音仅在主动开启后使用 · 记忆仅保留在本次页面</span>
       </footer>
 
       <DemoGuide

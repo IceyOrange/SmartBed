@@ -1,5 +1,5 @@
-import { AudioLines, BookOpenText, Keyboard, Mic, MicOff, RotateCcw, SendHorizontal } from "lucide-react";
-import { useEffect, useState, type FormEvent, type RefObject } from "react";
+import { BookOpenText, Keyboard, Mic, MicOff, RotateCcw, SendHorizontal } from "lucide-react";
+import { type FormEvent, type RefObject } from "react";
 
 import type { DemoTurn } from "../model";
 
@@ -8,6 +8,7 @@ interface VoiceConsoleProps {
   inputRef: RefObject<HTMLInputElement | null>;
   interimTranscript: string;
   latestTurn?: DemoTurn;
+  turns?: DemoTurn[];
   listening: boolean;
   speechMessage: string;
   speechStarting: boolean;
@@ -22,19 +23,20 @@ interface VoiceConsoleProps {
 }
 
 const QUICK_EXAMPLES = ["把靠背升高一点", "听听女儿的留言"];
-const PROCESSING_STEPS = ["已听清", "理解需要", "安全处理"];
 
-function stateTitle({
+function statusTitle({
   latestTurn,
   listening,
   speechStarting,
   submitting,
-}: Pick<VoiceConsoleProps, "latestTurn" | "listening" | "speechStarting" | "submitting">) {
-  if (submitting) return "正在理解您的需要";
-  if (speechStarting) return "正在准备聆听";
-  if (listening) return "我在听，请继续说";
-  if (latestTurn) return "已经为您处理好了";
-  return "点击麦克风开始说话";
+  failedRequest,
+}: Pick<VoiceConsoleProps, "latestTurn" | "listening" | "speechStarting" | "submitting" | "failedRequest">) {
+  if (failedRequest) return "这次没有发送成功";
+  if (submitting) return "正在处理";
+  if (speechStarting) return "正在打开麦克风";
+  if (listening) return "正在听";
+  if (latestTurn) return "可以继续说";
+  return "点击开始说话";
 }
 
 export default function VoiceConsole(props: VoiceConsoleProps) {
@@ -43,6 +45,7 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
     inputRef,
     interimTranscript,
     latestTurn,
+    turns = latestTurn ? [latestTurn] : [],
     listening,
     speechMessage,
     speechStarting,
@@ -56,112 +59,116 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
     onToggleListening,
   } = props;
   const busy = speechStarting || submitting;
-  const [processingPhase, setProcessingPhase] = useState(1);
-
-  useEffect(() => {
-    if (!submitting) {
-      setProcessingPhase(1);
-      return undefined;
-    }
-    setProcessingPhase(1);
-    const timer = window.setTimeout(() => setProcessingPhase(2), 700);
-    return () => window.clearTimeout(timer);
-  }, [submitting]);
+  const stateClass = failedRequest
+    ? "is-error"
+    : submitting
+      ? "is-processing"
+      : speechStarting
+        ? "is-starting"
+        : listening
+          ? "is-listening"
+          : "is-idle";
+  const detail = interimTranscript
+    ? `“${interimTranscript}”`
+    : speechMessage;
 
   return (
     <section className="voice-console" aria-busy={busy} aria-labelledby="voice-console-title">
       <div className="voice-console__header">
         <div>
-          <span className="section-kicker">床侧语音</span>
-          <h1 id="voice-console-title">需要什么帮助？</h1>
-          <p>直接说出需要，不必记住固定口令</p>
+          <span className="section-kicker">早上好，王阿姨</span>
+          <h1 id="voice-console-title">现在需要什么帮助？</h1>
+          <p>说出您想做的事，床体、照护和家人联系都可以。</p>
         </div>
-        <button
-          type="button"
-          className="guide-trigger"
-          aria-label="打开演示指南"
-          onClick={onOpenGuide}
-        >
-          <BookOpenText size={18} />
-          演示指南
+        <button type="button" className="guide-trigger" aria-label="打开演示指南" onClick={onOpenGuide}>
+          <BookOpenText size={16} />
+          怎么说
         </button>
       </div>
 
-      <div className={`voice-session${listening ? " is-listening" : ""}${submitting ? " is-processing" : ""}${failedRequest ? " is-error" : ""}`}>
-        <div className={`voice-listener${listening ? " is-listening" : ""}${speechStarting ? " is-starting" : ""}`}>
-          <div className="voice-wave" aria-hidden="true">
-            {Array.from({ length: 7 }, (_, index) => <span key={index} />)}
-          </div>
+      <div className="voice-console__center">
+        <div className="voice-intro">
+          <strong>我在这里，随时可以开始</strong>
+          <span>不会自动录音，只有主动开启后才会听取指令</span>
+        </div>
+
+        <div className={`voice-control ${stateClass}`}>
           <button
             type="button"
-            className="voice-mic-button"
-            aria-label={speechStarting ? "正在识别语音" : listening ? "停止语音识别" : "开始语音识别"}
+            className="voice-control__button"
+            aria-label={busy ? "正在识别语音" : listening ? "停止语音识别" : "开始语音识别"}
             aria-describedby="voice-speech-message"
             aria-pressed={listening}
             disabled={busy}
             onClick={onToggleListening}
           >
-            {listening ? <MicOff size={34} /> : <Mic size={34} />}
+            {listening ? <MicOff size={27} /> : <Mic size={27} />}
           </button>
-        </div>
-
-        <div id="voice-speech-message" className={`speech-state${failedRequest ? " is-error" : ""}`} aria-live="polite">
-          <strong>{failedRequest ? "这次请求没有发送成功" : stateTitle({ latestTurn, listening, speechStarting, submitting })}</strong>
-          <p>{interimTranscript ? `“${interimTranscript}”` : speechMessage}</p>
-          {failedRequest && !submitting ? (
-            <button type="button" className="speech-retry" aria-label="重新发送刚才的请求" onClick={onRetry}>
-              <RotateCcw size={15} />
-              重新发送
-            </button>
+          <div id="voice-speech-message" className="voice-control__copy" aria-live="polite">
+            <strong>{statusTitle({ latestTurn, listening, speechStarting, submitting, failedRequest })}</strong>
+            <span>{detail}</span>
+          </div>
+          <div className="voice-control__shortcut">
+            <span>也可以按空格键</span>
+            <kbd>空格</kbd>
+          </div>
+          {listening ? (
+            <div className="voice-level" aria-hidden="true">
+              <i /><i /><i /><i />
+            </div>
           ) : null}
         </div>
 
-        {submitting ? (
-          <div className="processing-steps" role="list" aria-label="正在处理">
-            {PROCESSING_STEPS.map((step, index) => (
-              <span
-                key={step}
-                role="listitem"
-                className={index < processingPhase ? "is-complete" : index === processingPhase ? "is-active" : undefined}
-                aria-current={index === processingPhase ? "step" : undefined}
-              >
-                {step}
-              </span>
-            ))}
-          </div>
+        {failedRequest && !submitting ? (
+          <button type="button" className="speech-retry" aria-label="重新发送刚才的请求" onClick={onRetry}>
+            <RotateCcw size={15} />重新发送
+          </button>
         ) : latestTurn ? (
-          <div className="voice-response">
-            <AudioLines size={18} aria-hidden="true" />
-            <p>“{latestTurn.userText}”</p>
+          <p className="last-utterance">“{latestTurn.userText}”</p>
+        ) : null}
+
+        <form className="voice-text-form" onSubmit={onSubmit}>
+          <Keyboard size={18} aria-hidden="true" />
+          <input
+            ref={inputRef}
+            aria-label="输入想对护理床说的话"
+            placeholder="也可以直接输入一句话"
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+          />
+          <button type="submit" aria-label="发送文字指令" disabled={!draft.trim() || submitting}>
+            <SendHorizontal size={17} />
+            <span>{submitting ? "处理中" : "发送"}</span>
+          </button>
+        </form>
+
+        {!turns.length ? (
+          <div className="quick-phrases" aria-label="试着这样说">
+            <span>试着说</span>
+            {QUICK_EXAMPLES.map((example) => (
+              <button key={example} type="button" onClick={() => onFillExample(example)}>{example}</button>
+            ))}
           </div>
         ) : null}
       </div>
 
-      <form className="voice-text-form" onSubmit={onSubmit}>
-        <Keyboard size={19} aria-hidden="true" />
-        <input
-          ref={inputRef}
-          aria-label="输入想对护理床说的话"
-          placeholder="也可以在这里输入"
-          value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
-        />
-        <button type="submit" aria-label="发送文字指令" disabled={!draft.trim() || submitting}>
-          <SendHorizontal size={19} />
-          <span>{submitting ? "处理中" : "发送"}</span>
-        </button>
-      </form>
-
-      <div className="voice-console__footer">
-        <span>空格键也可以开始或结束语音</span>
-        <div className="quick-phrases" aria-label="快捷示例">
-          {QUICK_EXAMPLES.map((example) => (
-            <button key={example} type="button" onClick={() => onFillExample(example)}>
-              “{example}”
-            </button>
-          ))}
+      <section className="recent-usage" aria-label="本次对话" aria-live="polite">
+        <div className="recent-usage__heading">
+          <strong>刚刚使用</strong>
+          <span>刷新页面后清空</span>
         </div>
-      </div>
+        {turns.length ? (
+          <ol>
+            {turns.slice(0, 3).map((turn, index) => (
+              <li key={turn.id}>
+                <em>{String(index + 1).padStart(2, "0")}</em>
+                <span>{turn.userText}</span>
+                <time>{turn.match.label}</time>
+              </li>
+            ))}
+          </ol>
+        ) : <p>本次页面还没有使用记录</p>}
+      </section>
     </section>
   );
 }

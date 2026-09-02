@@ -241,12 +241,12 @@ describe("bedside voice demo", () => {
   it("shows a calm daily overview instead of a bed drawing or capability wall", async () => {
     render(<VoiceDemoApp />);
 
-    expect(screen.getByRole("heading", { name: "需要什么帮助？" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "今天，一切都安排好了" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "现在需要什么帮助？" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "一切都安排好了" })).toBeInTheDocument();
     expect(screen.getByText("床体静止 · 安全状态正常")).toBeInTheDocument();
     expect(screen.getByText("14:30 · 翻身护理")).toBeInTheDocument();
-    expect(screen.getByText("女儿的新留言")).toBeInTheDocument();
-    expect(screen.getByText("北京 · 晴 26℃")).toBeInTheDocument();
+    expect(screen.getByText("女儿留了一条语音")).toBeInTheDocument();
+    expect(screen.getByText("晴，最高 29℃")).toBeInTheDocument();
     expect(screen.queryByText("中控 Agent 能做什么")).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /护理床|床体/ })).not.toBeInTheDocument();
   });
@@ -306,7 +306,7 @@ describe("bedside voice demo", () => {
 
     await user.click(screen.getByRole("button", { name: "回到今日概览" }));
 
-    expect(screen.getByRole("heading", { name: "今天，一切都安排好了" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "一切都安排好了" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "本次对话" })).toHaveTextContent("把靠背升高一点");
   });
 
@@ -326,13 +326,13 @@ describe("bedside voice demo", () => {
     await user.type(screen.getByLabelText("输入想对护理床说的话"), "今天天气怎么样");
     await user.click(screen.getByRole("button", { name: "发送文字指令" }));
 
-    expect(screen.getByRole("heading", { name: "今天，一切都安排好了" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "一切都安排好了" })).toBeInTheDocument();
     expect(screen.queryByText("靠背已升高到 23 度。")).not.toBeInTheDocument();
 
     await act(async () => rejectFollowUp(new TypeError("offline")));
 
     expect(await screen.findByText("暂时无法连接床侧服务，请稍后重试。")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "今天，一切都安排好了" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "一切都安排好了" })).toBeInTheDocument();
   });
 
   it("uses one page actor and sends only the latest eight turns as context", async () => {
