@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from .bed_control import DeterministicBedController
 from .direct_control import DirectControlHandler
 from .domain_tools import (
@@ -18,14 +20,35 @@ from .llm import ChatModel
 from .model_interpreter import AiIntentInterpreter
 from .orchestrator import AgentOrchestrator
 from .policy import AgentAccessPolicy
+from .ports import (
+    AgendaPort,
+    AnniversaryPort,
+    BedControlPort,
+    CallPort,
+    CareRecordPort,
+    CareTodoPort,
+    MediaPort,
+    NotePort,
+    NotificationPort,
+    ReminderPort,
+    VoiceMessagePort,
+    WeatherPort,
+)
 from .read_models import DemoReadModel
 from .routing import EventRouter
 from .rules import RuleEngine
-from .skills.base import SkillRegistry
-from .skills.bed import BedControlSkill
-from .skills.care import CareCoordinationSkill
-from .skills.daily_life import DailyLifeSkill
-from .skills.relationship import RelationshipSkill
+from .skills.base import CapabilityHandler, SkillRegistry
+from .skills.bed import BedAdjustHandler, BedSceneHandler, BedStopHandler
+from .skills.care import CareRecordHandler, CareTodoHandler, EmergencyCallHandler, ReminderHandler
+from .skills.daily_life import (
+    CompanionHandler,
+    DateTimeHandler,
+    MediaHandler,
+    NoteHandler,
+    TodayAgendaHandler,
+    WeatherHandler,
+)
+from .skills.relationship import AnniversaryHandler, LiveCallHandler, VoiceMessageHandler
 from .state import SharedStateStore
 from .system import CareBedSystem
 from .tools import InMemoryNotificationSink, InMemoryReminderStore
@@ -34,24 +57,56 @@ from .tools import InMemoryNotificationSink, InMemoryReminderStore
 def build_default_agent(
     state: SharedStateStore,
     controller: DeterministicBedController,
-    care_skill: CareCoordinationSkill | None = None,
-    relationship_skill: RelationshipSkill | None = None,
-    daily_life_skill: DailyLifeSkill | None = None,
     intent_model: ChatModel | None = None,
+    *,
+    handlers: Sequence[CapabilityHandler] | None = None,
 ) -> AgentOrchestrator:
     del state
-    skills = [BedControlSkill(controller)]
-    if care_skill is not None:
-        skills.append(care_skill)
-    if relationship_skill is not None:
-        skills.append(relationship_skill)
-    if daily_life_skill is not None:
-        skills.append(daily_life_skill)
+    configured_handlers = tuple(handlers) if handlers is not None else (
+        BedAdjustHandler(controller),
+        BedSceneHandler(controller),
+        BedStopHandler(controller),
+    )
     return AgentOrchestrator(
         interpreter=AiIntentInterpreter(model=intent_model),
         contexts=ConversationContextStore(),
-        skills=SkillRegistry(skills),
+        skills=SkillRegistry(configured_handlers),
         access_policy=AgentAccessPolicy(),
+    )
+
+
+def build_capability_handlers(
+    *,
+    controller: BedControlPort,
+    reminders: ReminderPort,
+    records: CareRecordPort,
+    todos: CareTodoPort,
+    calls: CallPort,
+    notifications: NotificationPort,
+    voice_messages: VoiceMessagePort,
+    anniversaries: AnniversaryPort,
+    read_model: AgendaPort,
+    notes: NotePort,
+    weather: WeatherPort,
+    media: MediaPort,
+) -> tuple[CapabilityHandler, ...]:
+    return (
+        BedAdjustHandler(controller),
+        BedSceneHandler(controller),
+        BedStopHandler(controller),
+        ReminderHandler(reminders),
+        CareRecordHandler(records),
+        CareTodoHandler(todos),
+        EmergencyCallHandler(calls, notifications),
+        LiveCallHandler(calls),
+        VoiceMessageHandler(voice_messages),
+        AnniversaryHandler(anniversaries, voice_messages),
+        TodayAgendaHandler(read_model),
+        WeatherHandler(weather),
+        NoteHandler(notes),
+        MediaHandler(media),
+        DateTimeHandler(read_model),
+        CompanionHandler(),
     )
 
 
@@ -93,19 +148,15 @@ def build_default_system(
         weather=weather,
         media=media,
     )
-    care_skill = CareCoordinationSkill(
+    handlers = build_capability_handlers(
+        controller=controller,
         reminders=reminders,
         records=care_records,
         todos=care_todos,
         calls=calls,
         notifications=notifications,
-    )
-    relationship_skill = RelationshipSkill(
-        calls=calls,
         voice_messages=voice_messages,
         anniversaries=anniversaries,
-    )
-    daily_life_skill = DailyLifeSkill(
         read_model=read_model,
         notes=notes,
         weather=weather,
@@ -119,10 +170,8 @@ def build_default_system(
         agent=build_default_agent(
             state,
             controller,
-            care_skill,
-            relationship_skill,
-            daily_life_skill,
             intent_model,
+            handlers=handlers,
         ),
         notifications=notifications,
         reminders=reminders,

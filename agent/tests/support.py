@@ -99,6 +99,11 @@ DEFAULT_INTENTS = {
         target="儿子",
         action="play",
     ),
+    "播放女儿的留言": _intent(
+        "voice_message",
+        target="女儿",
+        action="play",
+    ),
     "给女儿留言说我很好": _intent(
         "voice_message",
         target="女儿",

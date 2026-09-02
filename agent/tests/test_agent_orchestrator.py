@@ -86,6 +86,56 @@ class AgentOrchestratorTests(unittest.TestCase):
         self.assertEqual(55, bed.backrest_degrees)
         self.assertEqual(15, bed.legrest_degrees)
 
+    def test_incomplete_scene_request_clarifies_before_confirmation(self) -> None:
+        self.agent = build_default_agent(
+            self.state,
+            self.controller,
+            intent_model=ScriptedIntentModel(
+                {
+                    "调个姿势": {
+                        "kind": "bed_scene",
+                        "target": None,
+                        "action": "set_scene",
+                        "parameters": {},
+                        "confidence": 0.96,
+                        "negated": False,
+                        "should_execute": True,
+                        "utterance_type": "command",
+                    }
+                }
+            ),
+        )
+
+        result = self.agent.handle_text("调个姿势", actor_id="elder-1")
+
+        self.assertEqual(ExecutionStatus.NEEDS_CLARIFICATION, result.status)
+        self.assertEqual("missing_bed_target", result.code)
+
+    def test_large_relative_adjustment_clarifies_before_confirmation(self) -> None:
+        self.agent = build_default_agent(
+            self.state,
+            self.controller,
+            intent_model=ScriptedIntentModel(
+                {
+                    "再大幅调一点": {
+                        "kind": "bed_adjust",
+                        "target": None,
+                        "action": "up",
+                        "parameters": {"amount": 10},
+                        "confidence": 0.96,
+                        "negated": False,
+                        "should_execute": True,
+                        "utterance_type": "command",
+                    }
+                }
+            ),
+        )
+
+        result = self.agent.handle_text("再大幅调一点", actor_id="elder-1")
+
+        self.assertEqual(ExecutionStatus.NEEDS_CLARIFICATION, result.status)
+        self.assertEqual("missing_bed_target", result.code)
+
     def test_unknown_request_does_not_invent_an_action(self) -> None:
         result = self.agent.handle_text("我今天感觉有一点奇怪", actor_id="elder-1")
 

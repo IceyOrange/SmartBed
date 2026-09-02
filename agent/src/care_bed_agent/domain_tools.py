@@ -174,9 +174,19 @@ class InMemoryVoiceMessageStore:
             for index in range(len(self.items) - 1, -1, -1):
                 message = self.items[index]
                 if message.sender == sender and message.recipient == recipient:
-                    played = replace(message, status="played")
-                    self.items[index] = played
-                    return asdict(played)
+                    playing = replace(message, status="playing")
+                    self.items[index] = playing
+                    return asdict(playing)
+        return None
+
+    def mark_played(self, message_id: str) -> dict[str, object] | None:
+        with self._lock:
+            for index, message in enumerate(self.items):
+                if message.message_id != message_id:
+                    continue
+                played = replace(message, status="played")
+                self.items[index] = played
+                return asdict(played)
         return None
 
 
@@ -250,4 +260,13 @@ class SimulatedMediaService:
 
     def play(self, query: str) -> dict[str, str | None]:
         self.current = {"status": "playing", "query": query}
+        return dict(self.current)
+
+    def pause(self) -> dict[str, str | None]:
+        if self.current["status"] == "playing":
+            self.current = {**self.current, "status": "paused"}
+        return dict(self.current)
+
+    def stop(self) -> dict[str, str | None]:
+        self.current = {**self.current, "status": "stopped"}
         return dict(self.current)

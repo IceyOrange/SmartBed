@@ -132,8 +132,8 @@ class AgentOrchestrator:
     @staticmethod
     def _requires_confirmation(intent: Intent) -> bool:
         if intent.kind is IntentKind.BED_SCENE:
-            return True
-        if intent.kind is not IntentKind.BED_ADJUST:
+            return intent.parameters.get("scene") in {"meal", "television", "sleep"}
+        if intent.kind is not IntentKind.BED_ADJUST or intent.target is None:
             return False
         try:
             return int(intent.parameters.get("amount", 5)) >= 10

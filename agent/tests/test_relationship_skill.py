@@ -32,7 +32,14 @@ class RelationshipSkillTests(unittest.TestCase):
         self.assertEqual(ExecutionStatus.COMPLETED, result.status)
         self.assertEqual("voice_message_playing", result.code)
         self.assertEqual("儿子", result.data["voice_message"]["sender"])
-        self.assertEqual("played", self.system.voice_messages.items[0].status)
+        self.assertEqual("playing", self.system.voice_messages.items[0].status)
+
+    def test_missing_voice_message_returns_empty_result_without_fabrication(self) -> None:
+        result = self.ask("播放女儿的留言")
+
+        self.assertEqual(ExecutionStatus.COMPLETED, result.status)
+        self.assertEqual("voice_message_not_found", result.code)
+        self.assertIsNone(result.data["voice_message"])
 
     def test_lists_today_anniversary(self) -> None:
         result = self.ask("今天是不是有家人过生日")
