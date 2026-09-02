@@ -369,12 +369,16 @@ def create_http_server(
             self._write(api.dispatch("DELETE", self.path))
 
         def _write_with_body(self, method: str) -> None:
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+                raw_body = self.rfile.read(content_length) if content_length else b"{}"
+            except ValueError:
+                self._write(AgentApi._invalid("请求体必须是 JSON 对象。"))
+                return
             if urlsplit(self.path).path == "/api/v1/speech/recognize" and not self._origin_allowed():
                 self._write(ApiResponse(403, {"code": "origin_forbidden", "message": "当前网页不能使用本机麦克风。"}))
                 return
             try:
-                content_length = int(self.headers.get("Content-Length", "0"))
-                raw_body = self.rfile.read(content_length) if content_length else b"{}"
                 body = json.loads(raw_body.decode("utf-8"))
                 if not isinstance(body, dict):
                     raise ValueError("JSON body must be an object")
