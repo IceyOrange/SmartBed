@@ -51,7 +51,7 @@
 - Modify: `agent/tests/test_model_integration.py`
 
 **Interfaces:**
-- Produces: `CapabilitySpec`, `CAPABILITIES`, `capability_for(kind, action)`, `supported_intent_kinds()`.
+- Produces: `CapabilitySpec`, `CAPABILITIES`, `capability_for(kind, action)`, `supported_intent_kinds()`; each intent kind owns one capability and may declare multiple valid actions.
 - Produces: `build_system_prompt(capabilities: Sequence[CapabilitySpec] = CAPABILITIES) -> str`.
 - Produces: `parse_model_intent(raw_text: str, response: str, *, model_name: str, minimum_confidence: float) -> Intent`.
 - Preserves: `AiIntentInterpreter(model=..., minimum_confidence=...).interpret(text, history) -> Intent`.
@@ -60,9 +60,9 @@
 
 ```python
 class CapabilityCatalogTests(unittest.TestCase):
-    def test_each_kind_action_pair_is_unique(self) -> None:
-        keys = [(item.kind, item.action) for item in CAPABILITIES]
-        self.assertEqual(len(keys), len(set(keys)))
+    def test_each_executable_kind_has_one_capability(self) -> None:
+        kinds = [item.kind for item in CAPABILITIES]
+        self.assertEqual(len(kinds), len(set(kinds)))
 
     def test_catalog_covers_every_executable_kind(self) -> None:
         self.assertEqual(set(IntentKind) - {IntentKind.UNKNOWN, IntentKind.COMMUNICATION}, supported_intent_kinds())
@@ -87,7 +87,7 @@ class PromptBuilderTests(unittest.TestCase):
 class CapabilitySpec:
     capability_id: str
     kind: IntentKind
-    action: str
+    actions: tuple[str, ...]
     summary: str
     allowed_targets: tuple[str, ...] = ()
     parameter_names: tuple[str, ...] = ()
@@ -95,14 +95,13 @@ class CapabilitySpec:
     examples: tuple[str, ...] = ()
 
 CAPABILITIES = (
-    CapabilitySpec("bed.adjust.up", IntentKind.BED_ADJUST, "up", "抬高床体部件", ("backrest", "legrest", "bed_height"), ("amount",), (), ("把靠背升高一点",)),
-    CapabilitySpec("bed.adjust.down", IntentKind.BED_ADJUST, "down", "降低床体部件", ("backrest", "legrest", "bed_height"), ("amount",), (), ("把床降低一点",)),
-    CapabilitySpec("bed.scene", IntentKind.BED_SCENE, "set_scene", "切换预设姿势", (), ("scene",), ("scene",), ("把床全部放平", "调到睡眠姿势")),
-    CapabilitySpec("bed.stop", IntentKind.STOP, "stop", "立即停止床体动作", (), (), (), ("马上停下",)),
+    CapabilitySpec("bed.adjust", IntentKind.BED_ADJUST, ("up", "down"), "升降床体部件", ("backrest", "legrest", "bed_height"), ("amount",), (), ("把靠背升高一点", "把床降低一点")),
+    CapabilitySpec("bed.scene", IntentKind.BED_SCENE, ("set_scene",), "切换预设姿势", (), ("scene",), ("scene",), ("把床全部放平", "调到睡眠姿势")),
+    CapabilitySpec("bed.stop", IntentKind.STOP, ("stop",), "立即停止床体动作", (), (), (), ("马上停下",)),
 )
 ```
 
-Complete the tuple with reminder, care record, care todo, emergency, live call, voice-message play/send, anniversary list/greeting, agenda, weather, note, companion, media, and date/time. Every `(kind, action)` resolves to one record.
+Complete the tuple with reminder, care record, care todo, emergency, live call, voice-message play/send, anniversary list/greeting, agenda, weather, note, companion, media, and date/time. Every executable kind resolves to one record, and `capability_for` additionally checks the requested action.
 
 - [ ] **Step 4: Build the prompt from `CAPABILITIES`**
 
@@ -211,7 +210,7 @@ class CapabilityHandler(Protocol):
 AgentSkill = CapabilityHandler
 ```
 
-Implement `BedAdjustHandler`, `BedSceneHandler`, `BedStopHandler`, `ReminderCreateHandler`, `CareRecordCreateHandler`, `CareTodoCreateHandler`, `EmergencyCallHandler`, `LiveCallHandler`, `VoiceMessagePlayHandler`, `VoiceMessageSendHandler`, `AnniversaryListHandler`, `AnniversaryGreetingHandler`, `TodayAgendaHandler`, `WeatherHandler`, `NoteHandler`, `CompanionHandler`, `MediaHandler`, and `DateTimeHandler`. Keep existing result messages, codes, payload keys, confirmation behavior, and domain-level skill names. Missing fields return specific clarification; empty stores never fabricate data.
+Implement `BedAdjustHandler`, `BedSceneHandler`, `BedStopHandler`, `ReminderHandler`, `CareRecordHandler`, `CareTodoHandler`, `EmergencyCallHandler`, `LiveCallHandler`, `VoiceMessageHandler`, `AnniversaryHandler`, `TodayAgendaHandler`, `WeatherHandler`, `NoteHandler`, `CompanionHandler`, `MediaHandler`, and `DateTimeHandler`. Keep existing result messages, codes, payload keys, confirmation behavior, and domain-level skill names. Missing fields return specific clarification; empty stores never fabricate data.
 
 - [ ] **Step 5: Add realistic service lifecycles**
 

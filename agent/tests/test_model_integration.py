@@ -5,6 +5,7 @@ from care_bed_agent.intents import IntentKind
 from care_bed_agent.llm import GlmClientError
 from care_bed_agent.model_interpreter import AiIntentInterpreter
 from care_bed_agent.models import EventKind, EventSource, ExecutionStatus, IncomingEvent
+from care_bed_agent.prompting import build_system_prompt
 
 
 class FakeChatModel:
@@ -61,6 +62,10 @@ class AiIntentInterpreterTests(unittest.TestCase):
         self.assertEqual(IntentKind.WEATHER, intent.kind)
         self.assertEqual(1, len(model.calls))
         self.assertEqual("json_object", model.calls[0][1])
+        self.assertEqual(
+            {"role": "system", "content": build_system_prompt()},
+            model.calls[0][0][0],
+        )
 
     def test_recent_conversation_precedes_the_current_user_request(self) -> None:
         model = FakeChatModel(
