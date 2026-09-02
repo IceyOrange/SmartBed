@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, CalendarCheck2, HeartHandshake, Home, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, CalendarCheck2, HeartHandshake, Home, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { ServicePresentation } from "../servicePresentation";
@@ -16,11 +16,11 @@ interface ServiceStageProps {
 }
 
 const DOMAIN_LABELS = {
-  body: "舒适调节",
-  care: "照护安排",
+  body: "身体舒适",
+  care: "照护协同",
   relationship: "家人联系",
   daily: "日常服务",
-  unknown: "贴心回应",
+  unknown: "服务反馈",
 } as const;
 
 const DOMAIN_ICONS = {
@@ -28,7 +28,7 @@ const DOMAIN_ICONS = {
   care: HeartHandshake,
   relationship: Home,
   daily: CalendarCheck2,
-  unknown: Sparkles,
+  unknown: Info,
 } as const;
 
 export default function ServiceStage({ presentation, onConfirm, onCancel, onReturnToOverview }: ServiceStageProps) {
@@ -84,13 +84,26 @@ export default function ServiceStage({ presentation, onConfirm, onCancel, onRetu
       break;
     case "confirmation":
     case "feedback":
-      content = <FeedbackStage presentation={presentation} onConfirm={onConfirm} onCancel={onCancel} />;
+      content = (
+        <FeedbackStage
+          presentation={presentation}
+          cancelled={secondaryState === "cancelled"}
+          onConfirm={onConfirm}
+          onCancel={() => {
+            setSecondaryState("cancelled");
+            onCancel();
+          }}
+        />
+      );
       break;
   }
+
+  const cancelledConfirmation = presentation.kind === "confirmation" && secondaryState === "cancelled";
 
   return (
     <section
       className={`service-stage service-stage--${presentation.domain}`}
+      data-result-kind={presentation.kind}
       aria-atomic="true"
       aria-live="polite"
       aria-labelledby="service-stage-title"
@@ -102,10 +115,10 @@ export default function ServiceStage({ presentation, onConfirm, onCancel, onRetu
       <div className="stage-heading">
         <div>
           <span className="section-kicker"><DomainIcon size={16} />{DOMAIN_LABELS[presentation.domain]}</span>
-          <h2 id="service-stage-title">{presentation.title}</h2>
-          <p>{presentation.description}</p>
+          <h2 id="service-stage-title">{cancelledConfirmation ? "操作已取消" : presentation.title}</h2>
+          <p>{cancelledConfirmation ? "床体保持原位，未执行任何动作。" : presentation.description}</p>
         </div>
-        <span className="result-status">{presentation.badge}</span>
+        <span className="result-status">{cancelledConfirmation ? "未执行" : presentation.badge}</span>
       </div>
       <div className={`service-stage__content service-stage__content--${presentation.kind}`}>
         {content}

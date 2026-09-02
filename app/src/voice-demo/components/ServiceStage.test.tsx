@@ -44,10 +44,11 @@ describe("ServiceStage", () => {
     });
 
     expect(screen.getByRole("heading", { name: "靠背升高已完成" })).toBeInTheDocument();
+    expect(screen.getByText("身体舒适")).toBeInTheDocument();
     expect(screen.getByText("目标 23°")).toBeInTheDocument();
-    expect(screen.getByText("靠背 23°")).toBeInTheDocument();
-    expect(screen.getByText("腿板 6°")).toBeInTheDocument();
-    expect(screen.getByText("床高 52 cm")).toBeInTheDocument();
+    expect(screen.getByLabelText("靠背 23°")).toBeInTheDocument();
+    expect(screen.getByLabelText("腿板 6°")).toBeInTheDocument();
+    expect(screen.getByLabelText("床高 52 cm")).toBeInTheDocument();
     expect(screen.getByText("安全锁正常 · 随时说“停止”")).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /床|护理床/ })).not.toBeInTheDocument();
   });
@@ -75,6 +76,7 @@ describe("ServiceStage", () => {
     ],
   ] as const)("renders the %s care state", (_kind, presentation, details) => {
     renderStage(presentation as ServicePresentation);
+    expect(screen.getByText("照护协同")).toBeInTheDocument();
     for (const detail of details) expect(screen.getByText(detail)).toBeInTheDocument();
   });
 
@@ -90,6 +92,7 @@ describe("ServiceStage", () => {
     });
 
     expect(screen.getByText("女")).toBeInTheDocument();
+    expect(screen.getByText("家人联系")).toBeInTheDocument();
     expect(screen.getByText("正在呼叫")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "结束模拟通话" }));
     expect(screen.getByText("通话已结束（模拟）")).toBeInTheDocument();
@@ -104,7 +107,7 @@ describe("ServiceStage", () => {
     [
       "anniversary",
       { ...base, domain: "relationship", kind: "anniversary", title: "祝福已经送出", contact: "孙女", content: "祝你生日快乐，天天开心" },
-      ["孙女", "祝你生日快乐，天天开心", "温暖祝福已送达"],
+      ["孙女", "祝你生日快乐，天天开心", "祝福已送达"],
     ],
   ] as const)("renders the %s relationship state", (_kind, presentation, details) => {
     renderStage(presentation as ServicePresentation);
@@ -135,11 +138,66 @@ describe("ServiceStage", () => {
     [
       "media",
       { ...base, domain: "daily", kind: "media", title: "正在播放京剧", query: "京剧·锁麟囊选段", state: "playing" },
-      ["京剧·锁麟囊选段", "正在播放", "演示音频"],
+      ["京剧·锁麟囊选段", "播放中", "模拟播放"],
     ],
   ] as const)("renders the %s daily-life state", (_kind, presentation, details) => {
     renderStage(presentation as ServicePresentation);
+    expect(screen.getByText("日常服务")).toBeInTheDocument();
     for (const detail of details) expect(screen.getByText(detail)).toBeInTheDocument();
+  });
+
+  it("shows message playback state before and after pausing", async () => {
+    const user = userEvent.setup();
+    renderStage({
+      ...base,
+      domain: "relationship",
+      kind: "message",
+      title: "正在播放家人留言",
+      badge: "播放中",
+      contact: "女儿",
+      content: "晚上给您打电话",
+      duration: 18,
+      state: "playing",
+    });
+
+    expect(screen.getAllByText("播放中").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "暂停模拟留言" }));
+    expect(screen.getByText("已暂停")).toBeInTheDocument();
+  });
+
+  it("shows a sent family message without incoming playback controls", () => {
+    renderStage({
+      ...base,
+      domain: "relationship",
+      kind: "message",
+      title: "留言已经送出",
+      badge: "已送达",
+      contact: "女儿",
+      content: "我晚点给你回电话",
+      duration: 0,
+      state: "sent",
+    });
+
+    expect(screen.getByText("发送给")).toBeInTheDocument();
+    expect(screen.getByText("留言已送达")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /模拟留言/ })).not.toBeInTheDocument();
+  });
+
+  it("shows media playback state before and after pausing", async () => {
+    const user = userEvent.setup();
+    renderStage({
+      ...base,
+      domain: "daily",
+      kind: "media",
+      title: "正在播放京剧",
+      badge: "播放中",
+      query: "京剧·锁麟囊选段",
+      state: "playing",
+    });
+
+    expect(screen.getAllByText("播放中").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "暂停模拟播放" }));
+    expect(screen.getByText("已暂停")).toBeInTheDocument();
   });
 
   it("routes confirmation actions back through natural-language callbacks", async () => {
@@ -159,6 +217,39 @@ describe("ServiceStage", () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  it("states that cancellation leaves the bed unchanged", async () => {
+    const user = userEvent.setup();
+    const { onCancel } = renderStage({
+      ...base,
+      domain: "body",
+      kind: "confirmation",
+      title: "请确认这次操作",
+      action: "切换到睡眠姿势",
+    });
+
+    await user.click(screen.getByRole("button", { name: "取消操作" }));
+
+    expect(screen.getByText("已取消，床体没有执行调整")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "确认执行" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "回到今日概览" })).toBeInTheDocument();
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("labels a completed cancellation as an operation that was not executed", () => {
+    renderStage({
+      ...base,
+      domain: "body",
+      kind: "feedback",
+      title: "操作已取消",
+      badge: "未执行",
+      tone: "neutral",
+      detail: "已取消，床体没有执行调整",
+    });
+
+    expect(screen.getByText("操作未执行")).toBeInTheDocument();
+    expect(screen.queryByText("需要补充信息")).not.toBeInTheDocument();
+  });
+
   it("shows restrained safety guidance for rejected requests", () => {
     renderStage({
       ...base,
@@ -171,6 +262,7 @@ describe("ServiceStage", () => {
     });
 
     expect(screen.getByText("药量调整需要由医护人员判断。")).toBeInTheDocument();
+    expect(screen.getByText("服务反馈")).toBeInTheDocument();
     expect(screen.getByText("建议联系专业医护人员")).toBeInTheDocument();
   });
 });

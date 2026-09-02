@@ -36,13 +36,15 @@ export default function RelationshipStage({
     return (
       <div className={`relationship-stage relationship-stage--call${ended ? " is-ended" : ""}`}>
         <div className="contact-avatar" aria-hidden="true">{initials(presentation.contact)}</div>
-        <span className="contact-role">家人联系人</span>
-        <strong className="contact-name">{presentation.contact}</strong>
-        <p>{ended ? "通话已结束（模拟）" : "正在呼叫"}</p>
+        <div className="call-copy">
+          <span className="contact-role">家人联系人</span>
+          <strong className="contact-name">{presentation.contact}</strong>
+          <p>{ended ? "通话已结束（模拟）" : "正在呼叫"}</p>
+        </div>
         <div className="call-wave" aria-hidden="true">
           {Array.from({ length: 9 }, (_, index) => <span key={index} />)}
         </div>
-        <button type="button" className="danger-control" onClick={onEndCall} disabled={ended}>
+        <button type="button" className="call-control" onClick={onEndCall} disabled={ended}>
           <PhoneOff size={19} />{ended ? "通话已结束" : "结束模拟通话"}
         </button>
       </div>
@@ -50,6 +52,30 @@ export default function RelationshipStage({
   }
 
   if (presentation.kind === "message") {
+    if (presentation.state === "sent") {
+      return (
+        <div className="relationship-stage relationship-stage--message is-outgoing">
+          <div className="message-sender">
+            <div className="contact-avatar" aria-hidden="true">{initials(presentation.contact)}</div>
+            <div><span>发送给</span><strong>{presentation.contact}</strong></div>
+            <Send size={22} />
+          </div>
+          <blockquote>{presentation.content}</blockquote>
+          <p className="message-delivery"><Send size={16} />留言已送达</p>
+        </div>
+      );
+    }
+
+    if (presentation.state === "empty") {
+      return (
+        <div className="relationship-stage relationship-stage--message is-empty">
+          <MessageCircle size={25} />
+          <strong>暂时没有新留言</strong>
+          <p>{presentation.content}</p>
+        </div>
+      );
+    }
+
     const isPlaying = presentation.state === "playing" && !paused;
     return (
       <div className="relationship-stage relationship-stage--message">
@@ -59,6 +85,7 @@ export default function RelationshipStage({
           <MessageCircle size={22} />
         </div>
         <blockquote>{presentation.content}</blockquote>
+        <span className="playback-state" aria-live="polite">{isPlaying ? "播放中" : "已暂停"}</span>
         <div className="playback-row">
           <button type="button" aria-label={isPlaying ? "暂停模拟留言" : "继续模拟留言"} onClick={onTogglePlayback}>
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
@@ -72,11 +99,12 @@ export default function RelationshipStage({
 
   return (
     <div className="relationship-stage relationship-stage--anniversary">
-      <span className="anniversary-icon"><Gift size={29} /></span>
-      <span>送给</span>
-      <strong>{presentation.contact}</strong>
+      <div className="anniversary-recipient">
+        <span className="anniversary-icon"><Gift size={25} /></span>
+        <div><span>送给</span><strong>{presentation.contact}</strong></div>
+      </div>
       <blockquote>{presentation.content}</blockquote>
-      <p><Send size={17} />温暖祝福已送达</p>
+      <p><Send size={17} />祝福已送达</p>
     </div>
   );
 }

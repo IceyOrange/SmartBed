@@ -83,7 +83,7 @@ function bedPresentation(turn: DemoTurn): ServicePresentation {
     domain: "body",
     title: turn.code === "stopped" ? "床体已安全停止" : `${posture}已完成`,
     description: turn.response,
-    badge: turn.code === "stopped" ? "已停止" : "模拟完成",
+    badge: turn.code === "stopped" ? "已停止" : "已完成",
     posture,
     target,
     targetValue,
@@ -146,7 +146,7 @@ export function toServicePresentation(turn: DemoTurn): ServicePresentation {
       title: "操作已取消",
       badge: "未执行",
       tone: "neutral",
-      detail: "床体保持原位",
+      detail: "已取消，床体没有执行调整",
     };
   }
   if (turn.match.domain === "body" || ["completed", "stopped"].includes(turn.code)) {
@@ -181,7 +181,7 @@ export function toServicePresentation(turn: DemoTurn): ServicePresentation {
       ...base,
       kind: "emergency",
       title: "正在发出紧急求助",
-      badge: "优先处理中",
+      badge: "紧急呼叫",
       contact: text(call.contact, turn.match.slots.contact ?? "护理人员"),
     };
   }
@@ -203,7 +203,7 @@ export function toServicePresentation(turn: DemoTurn): ServicePresentation {
       ...base,
       kind: "call",
       title: `正在联系${text(call.contact, turn.match.slots.contact ?? "家人")}`,
-      badge: "呼叫中",
+      badge: "正在呼叫",
       contact: text(call.contact, turn.match.slots.contact ?? "家人"),
       state: text(call.status, "calling"),
     };
@@ -218,7 +218,7 @@ export function toServicePresentation(turn: DemoTurn): ServicePresentation {
       kind: "message",
       title: state === "playing" ? "正在播放家人留言" : state === "sent" ? "留言已经送出" : "暂时没有新留言",
       badge: state === "playing" ? "播放中" : state === "sent" ? "已送达" : "没有留言",
-      contact: text(message.sender ?? message.recipient, turn.match.slots.contact ?? "家人"),
+      contact: text(state === "sent" ? message.recipient : message.sender, turn.match.slots.contact ?? "家人"),
       content: text(message.content, turn.response),
       duration: number(message.duration_seconds, 0),
       state,
@@ -277,7 +277,7 @@ export function toServicePresentation(turn: DemoTurn): ServicePresentation {
       ...base,
       kind: "companion",
       title: "我在这里陪您",
-      badge: "轻松聊聊",
+      badge: "陪伴交流",
       reply: turn.response,
     };
   }

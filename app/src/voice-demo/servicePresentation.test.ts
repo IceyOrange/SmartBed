@@ -106,7 +106,27 @@ describe("voice service presentation", () => {
       title: "操作已取消",
       badge: "未执行",
       tone: "neutral",
-      detail: "床体保持原位",
+      detail: "已取消，床体没有执行调整",
+    });
+  });
+
+  it("uses the recipient as the contact for a sent family message", () => {
+    const sent = toDemoTurn("给女儿留言说我晚点回电话", result(
+      "voice_message_sent",
+      {
+        voice_message: {
+          sender: "voice-session-123",
+          recipient: "女儿",
+          content: "我晚点回电话",
+        },
+      },
+    ));
+
+    expect(toServicePresentation(sent)).toMatchObject({
+      kind: "message",
+      state: "sent",
+      contact: "女儿",
+      content: "我晚点回电话",
     });
   });
 });

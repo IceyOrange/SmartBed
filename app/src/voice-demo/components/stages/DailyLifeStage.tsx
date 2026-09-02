@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, CloudSun, Headphones, NotebookPen, Pause, Play, Quote } from "lucide-react";
+import { CalendarDays, CheckCircle2, CloudSun, Headphones, MessageCircle, NotebookPen, Pause, Play } from "lucide-react";
 
 import type { ServicePresentation } from "../../servicePresentation";
 
@@ -57,9 +57,11 @@ export default function DailyLifeStage({ presentation, paused, onTogglePlayback 
   if (presentation.kind === "companion") {
     return (
       <div className="daily-stage daily-stage--companion">
-        <span className="quote-mark"><Quote size={28} /></span>
-        <blockquote>{presentation.reply}</blockquote>
-        <p>您可以接着说</p>
+        <span className="stage-icon"><MessageCircle size={24} /></span>
+        <div className="companion-copy">
+          <blockquote>{presentation.reply}</blockquote>
+          <p>您可以接着说</p>
+        </div>
       </div>
     );
   }
@@ -69,9 +71,9 @@ export default function DailyLifeStage({ presentation, paused, onTogglePlayback 
     <div className="daily-stage daily-stage--media">
       <div className="media-cover" aria-hidden="true"><Headphones size={34} /></div>
       <div className="media-copy">
-        <span>演示音频</span>
+        <span>模拟播放</span>
         <strong>{presentation.query}</strong>
-        <p>{isPlaying ? "正在播放" : "已暂停"}</p>
+        <p aria-live="polite">{isPlaying ? "播放中" : "已暂停"}</p>
         <div className="playback-row">
           <button type="button" aria-label={isPlaying ? "暂停模拟播放" : "继续模拟播放"} onClick={onTogglePlayback}>
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
