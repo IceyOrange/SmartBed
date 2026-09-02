@@ -28,7 +28,7 @@ export default function FeedbackStage({ presentation, onConfirm, onCancel }: Fee
   return (
     <div className={`feedback-stage feedback-stage--${presentation.tone}`}>
       <span className="feedback-icon"><ShieldCheck size={30} /></span>
-      {presentation.tone === "safe" ? <strong>建议联系专业医护人员</strong> : <strong>请换一种更具体的说法</strong>}
+      <strong>{presentation.detail ?? (presentation.tone === "safe" ? "建议联系专业医护人员" : "请换一种更具体的说法")}</strong>
     </div>
   );
 }

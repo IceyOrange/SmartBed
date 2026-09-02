@@ -95,7 +95,7 @@ export const VOICE_DOMAINS: VoiceDomainDefinition[] = [
     title: "调节身体姿势",
     subtitle: "更舒适地坐起、休息和活动",
     capabilities: ["靠背调节", "腿板调节", "整床升降", "情景姿态", "复位与停止"],
-    examples: ["把靠背升高一点", "调到吃饭姿势", "把床全部放平", "马上停下"],
+    examples: ["把靠背升高一点", "调到吃饭姿势", "调到睡眠姿势", "马上停下"],
   },
   {
     id: "care",

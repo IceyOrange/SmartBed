@@ -1,5 +1,5 @@
 import { AudioLines, BookOpenText, Keyboard, Mic, MicOff, RotateCcw, SendHorizontal } from "lucide-react";
-import type { FormEvent, RefObject } from "react";
+import { useEffect, useState, type FormEvent, type RefObject } from "react";
 
 import type { DemoTurn } from "../model";
 
@@ -22,6 +22,7 @@ interface VoiceConsoleProps {
 }
 
 const QUICK_EXAMPLES = ["把靠背升高一点", "听听女儿的留言"];
+const PROCESSING_STEPS = ["已听清", "理解需要", "安全处理"];
 
 function stateTitle({
   latestTurn,
@@ -55,9 +56,20 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
     onToggleListening,
   } = props;
   const busy = speechStarting || submitting;
+  const [processingPhase, setProcessingPhase] = useState(1);
+
+  useEffect(() => {
+    if (!submitting) {
+      setProcessingPhase(1);
+      return undefined;
+    }
+    setProcessingPhase(1);
+    const timer = window.setTimeout(() => setProcessingPhase(2), 700);
+    return () => window.clearTimeout(timer);
+  }, [submitting]);
 
   return (
-    <section className="voice-console" aria-labelledby="voice-console-title">
+    <section className="voice-console" aria-busy={busy} aria-labelledby="voice-console-title">
       <div className="voice-console__header">
         <div>
           <span className="section-kicker">床侧语音</span>
@@ -84,6 +96,7 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
             type="button"
             className="voice-mic-button"
             aria-label={speechStarting ? "正在识别语音" : listening ? "停止语音识别" : "开始语音识别"}
+            aria-describedby="voice-speech-message"
             aria-pressed={listening}
             disabled={busy}
             onClick={onToggleListening}
@@ -92,7 +105,7 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
           </button>
         </div>
 
-        <div className={`speech-state${failedRequest ? " is-error" : ""}`} aria-live="polite">
+        <div id="voice-speech-message" className={`speech-state${failedRequest ? " is-error" : ""}`} aria-live="polite">
           <strong>{failedRequest ? "这次请求没有发送成功" : stateTitle({ latestTurn, listening, speechStarting, submitting })}</strong>
           <p>{interimTranscript ? `“${interimTranscript}”` : speechMessage}</p>
           {failedRequest && !submitting ? (
@@ -104,10 +117,17 @@ export default function VoiceConsole(props: VoiceConsoleProps) {
         </div>
 
         {submitting ? (
-          <div className="processing-steps" aria-label="正在处理">
-            <span className="is-complete">已听见</span>
-            <span className="is-active">理解需要</span>
-            <span>安全处理</span>
+          <div className="processing-steps" role="list" aria-label="正在处理">
+            {PROCESSING_STEPS.map((step, index) => (
+              <span
+                key={step}
+                role="listitem"
+                className={index < processingPhase ? "is-complete" : index === processingPhase ? "is-active" : undefined}
+                aria-current={index === processingPhase ? "step" : undefined}
+              >
+                {step}
+              </span>
+            ))}
           </div>
         ) : latestTurn ? (
           <div className="voice-response">

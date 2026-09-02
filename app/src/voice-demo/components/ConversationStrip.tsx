@@ -10,11 +10,11 @@ export default function ConversationStrip({ turns }: ConversationStripProps) {
   if (!turns.length) return null;
 
   return (
-    <section className="conversation-strip" aria-label="本次对话">
+    <section className="conversation-strip" aria-label="本次对话" aria-live="polite">
       <div className="conversation-strip__title">
         <Clock3 size={16} />
         <span>本次对话</span>
-        <small>刷新页面后清空</small>
+        <small>最多 8 轮 · 刷新即清空</small>
       </div>
       <ol>
         {turns.slice(0, 4).map((turn) => (

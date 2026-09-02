@@ -52,12 +52,19 @@ export default function DemoGuide({ open, onClose, onSelect }: DemoGuideProps) {
   return (
     <div className="demo-guide-layer">
       <button className="demo-guide-backdrop" type="button" aria-label="关闭演示指南" onClick={onClose} />
-      <aside ref={panelRef} className="demo-guide" role="dialog" aria-modal="true" aria-label="演示指南">
+      <aside
+        ref={panelRef}
+        className="demo-guide"
+        role="dialog"
+        aria-modal="true"
+        aria-label="演示指南"
+        aria-describedby="demo-guide-description"
+      >
         <div className="demo-guide__header">
           <div>
             <span className="section-kicker">演示指南</span>
             <h2 id="demo-guide-title">试着这样说</h2>
-            <p>点击一句话，只会填入输入框。</p>
+            <p id="demo-guide-description">点击一句话，只会填入输入框。</p>
           </div>
           <button ref={closeButtonRef} type="button" className="icon-button" aria-label="关闭演示指南" onClick={onClose}>
             <X size={20} />

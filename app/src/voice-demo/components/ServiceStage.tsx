@@ -89,7 +89,12 @@ export default function ServiceStage({ presentation, onConfirm, onCancel, onRetu
   }
 
   return (
-    <section className={`service-stage service-stage--${presentation.domain}`} aria-labelledby="service-stage-title">
+    <section
+      className={`service-stage service-stage--${presentation.domain}`}
+      aria-atomic="true"
+      aria-live="polite"
+      aria-labelledby="service-stage-title"
+    >
       <button type="button" className="stage-return" onClick={onReturnToOverview}>
         <ArrowLeft size={17} />
         回到今日概览

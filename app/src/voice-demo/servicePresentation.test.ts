@@ -62,7 +62,7 @@ describe("voice service presentation", () => {
   });
 
   it("maps confirmation and safe failures to explicit feedback stages", () => {
-    const confirmation = toDemoTurn("把床全部放平", result(
+    const confirmation = toDemoTurn("调到睡眠姿势", result(
       "confirmation_required",
       {
         interpretation: {
@@ -84,5 +84,29 @@ describe("voice service presentation", () => {
 
     expect(toServicePresentation(confirmation)).toMatchObject({ kind: "confirmation" });
     expect(toServicePresentation(restricted)).toMatchObject({ kind: "feedback", tone: "neutral" });
+  });
+
+  it("shows a cancelled bed action as not executed", () => {
+    const cancelled = toDemoTurn("取消", result(
+      "action_cancelled",
+      {
+        interpretation: {
+          kind: "bed_scene",
+          target: null,
+          action: "set_scene",
+          parameters: { scene: "sleep" },
+          confidence: 0.96,
+          utterance_type: "command",
+        },
+      },
+    ));
+
+    expect(toServicePresentation(cancelled)).toMatchObject({
+      kind: "feedback",
+      title: "操作已取消",
+      badge: "未执行",
+      tone: "neutral",
+      detail: "床体保持原位",
+    });
   });
 });

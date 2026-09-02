@@ -44,7 +44,11 @@ export type ServicePresentation =
   | (PresentationBase & { kind: "companion"; reply: string })
   | (PresentationBase & { kind: "media"; query: string; state: string })
   | (PresentationBase & { kind: "confirmation"; action: string })
-  | (PresentationBase & { kind: "feedback"; tone: "neutral" | "safe" | "danger" });
+  | (PresentationBase & {
+      kind: "feedback";
+      tone: "neutral" | "safe" | "danger";
+      detail?: string;
+    });
 
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -133,6 +137,16 @@ export function toServicePresentation(turn: DemoTurn): ServicePresentation {
       title: turn.status === "restricted" ? "这项操作没有执行" : "还需要您再说明一下",
       badge: turn.status === "restricted" ? "安全保护" : "等待补充",
       tone: turn.status === "restricted" ? "safe" : "neutral",
+    };
+  }
+  if (turn.code === "action_cancelled") {
+    return {
+      ...base,
+      kind: "feedback",
+      title: "操作已取消",
+      badge: "未执行",
+      tone: "neutral",
+      detail: "床体保持原位",
     };
   }
   if (turn.match.domain === "body" || ["completed", "stopped"].includes(turn.code)) {

@@ -100,6 +100,16 @@ function recognitionError(error: string) {
   return "语音识别暂时不可用，请重试或使用文字输入";
 }
 
+function bedsideRequestError(error: unknown) {
+  if (error instanceof ApiError && error.code === "network_error") {
+    return "暂时无法连接床侧服务，请稍后重试。";
+  }
+  if (error instanceof ApiError && error.code === "timeout") {
+    return "床侧服务响应较慢，请再试一次。";
+  }
+  return error instanceof ApiError ? error.message : "床侧服务请求失败，请稍后重试。";
+}
+
 function toConversationHistory(session: DemoSessionState): ConversationMessageDto[] {
   return [...session.turns]
     .slice(0, 8)
@@ -188,6 +198,14 @@ export default function VoiceDemoApp() {
     inputRef.current?.focus();
   }, []);
 
+  const openGuide = useCallback(() => setGuideOpen(true), []);
+  const closeGuide = useCallback(() => setGuideOpen(false), []);
+  const selectGuideExample = useCallback((text: string) => {
+    setGuideOpen(false);
+    fillDraft(text);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, [fillDraft]);
+
   const submitInput = useCallback(async (text: string) => {
     const cleanText = text.trim();
     if (!cleanText || submitting) return;
@@ -214,8 +232,7 @@ export default function VoiceDemoApp() {
       setLastFailedRequest(null);
       speak(turn.response);
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "护理床服务请求失败，请稍后重试。";
-      setSpeechMessage(message);
+      setSpeechMessage(bedsideRequestError(error));
       setAgentConnected(false);
       setLastFailedRequest(cleanText);
     } finally {
@@ -428,14 +445,15 @@ export default function VoiceDemoApp() {
             failedRequest={lastFailedRequest}
             onDraftChange={setDraft}
             onFillExample={fillDraft}
-            onOpenGuide={() => setGuideOpen(true)}
+            onOpenGuide={openGuide}
             onRetry={() => void submitInput(lastFailedRequest ?? "")}
             onSubmit={handleSubmit}
             onToggleListening={() => void startOrStopListening()}
           />
 
-          {presentation && !showOverview ? (
+          {presentation && !showOverview && !submitting && !lastFailedRequest ? (
             <ServiceStage
+              key={latestTurn.id}
               presentation={presentation}
               onConfirm={() => void submitInput("确认")}
               onCancel={() => void submitInput("取消")}
@@ -460,8 +478,8 @@ export default function VoiceDemoApp() {
 
       <DemoGuide
         open={guideOpen}
-        onClose={() => setGuideOpen(false)}
-        onSelect={fillDraft}
+        onClose={closeGuide}
+        onSelect={selectGuideExample}
       />
     </div>
   );
