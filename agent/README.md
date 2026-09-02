@@ -158,7 +158,7 @@ $env:PYTHONPATH = "src"
 python -B -m unittest discover -s tests -v
 ```
 
-真实 GLM 冒烟测试为手动、可选步骤，不属于离线单元测试。它读取与生产启动相同的 `agent/.env` 和 `GLM_INTENT_*` 配置，只打印话术与解析结果：
+真实 GLM 覆盖评测为手动、可选步骤，不属于离线单元测试。它读取与生产启动相同的 `agent/.env` 和 `GLM_INTENT_*` 配置，只打印话术与解析结果：
 
 ```powershell
 cd agent
@@ -167,7 +167,13 @@ $env:PYTHONPATH = "src"
 python -B tests/manual_glm_smoke.py
 ```
 
-脚本覆盖床体放平、护理记录与生活记事区分、通话与留言区分、陪聊不误拨号、否定、假设、用药调整和应急优先级。未配置密钥或服务不可达时会明确失败，不会降低断言或回退到关键词规则。
+脚本当前包含 65 条话术，覆盖每个能力动作、老人常见口语、礼貌请求、信息不完整时的模块化追问、上下文指代、陪聊、自伤应急、复合指令、否定、假设、转述、用药调整、应急与停止优先级。未配置密钥或服务不可达时会明确失败，不会降低断言或回退到关键词规则。
+
+可重复传入 `--case` 只复测指定编号：
+
+```powershell
+python -B tests/manual_glm_smoke.py --case 13 --case 18 --case 58
+```
 
 ## 演示限制
 

@@ -92,13 +92,19 @@ $env:PYTHONPATH = "src"
 python -B -m unittest discover -s tests -v
 ```
 
-本地已配置 `agent/.env` 时，可额外运行真实模型冒烟。脚本只输出话术、意图、动作和参数，不打印密钥：
+本地已配置 `agent/.env` 时，可额外运行真实模型覆盖评测。脚本包含 65 条话术，覆盖全部能力动作、自然口语、缺少细节后的定向追问、短对话上下文、安全边界和明确不支持的请求；只输出解析结果，不打印密钥：
 
 ```powershell
 cd agent
 $env:PYTHONDONTWRITEBYTECODE = "1"
 $env:PYTHONPATH = "src"
 python -B tests/manual_glm_smoke.py
+```
+
+定位单条或少量用例时可重复传入编号，例如：
+
+```powershell
+python -B tests/manual_glm_smoke.py --case 13 --case 18 --case 58
 ```
 
 最终投屏截图保存在 `docs/screenshots/`。

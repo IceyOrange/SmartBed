@@ -79,27 +79,65 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         "care.todo",
         IntentKind.CARE_TODO,
         "创建护理人员待办",
-        (CapabilityAction("create", "创建护理待办", parameter_names=("title", "due"), required_parameters=("title",), examples=("新增一个明天翻身的待办",)),),
+        (
+            CapabilityAction(
+                "create",
+                "创建护理待办",
+                parameter_names=("title", "due"),
+                required_parameters=("title",),
+                examples=(
+                    "新增一个明天翻身的待办",
+                    "给护理员加个明天下午两点翻身的待办",
+                    "给护理员建个待办",
+                ),
+            ),
+        ),
     ),
     CapabilitySpec(
         "care.emergency",
         IntentKind.EMERGENCY_CALL,
-        "立即联系护理人员并发出高优先级通知",
-        (CapabilityAction("call", "发起应急呼叫", "contact", examples=("救命，快叫护理员", "帮我呼叫护理员")),),
+        "在跌倒、呼吸困难、自伤风险等紧急情况下联系护理人员并发出高优先级通知",
+        (
+            CapabilityAction(
+                "call",
+                "发起应急呼叫",
+                "contact",
+                examples=("救命，快叫护理员", "帮我呼叫护理员", "把床放平，我喘不过气", "我不想活了"),
+            ),
+        ),
     ),
     CapabilitySpec(
         "relationship.live_call",
         IntentKind.LIVE_CALL,
         "与家人实时通话",
-        (CapabilityAction("start", "发起实时通话", "contact", examples=("给女儿打电话",)),),
+        (
+            CapabilityAction(
+                "start",
+                "发起实时通话",
+                "contact",
+                examples=("给女儿打电话", "帮我接通儿子", "和老伴通个电话"),
+            ),
+        ),
     ),
     CapabilitySpec(
         "relationship.voice_message",
         IntentKind.VOICE_MESSAGE,
         "收听或发送非实时留言",
         (
-            CapabilityAction("play", "播放留言", "contact", examples=("听听女儿的留言",)),
-            CapabilityAction("send", "发送留言", "contact", ("content",), ("content",), examples=("给女儿说晚点回电话",)),
+            CapabilityAction(
+                "play",
+                "播放留言",
+                "contact",
+                examples=("听听女儿的留言", "放一下儿子的语音留言", "女儿有没有给我留言"),
+            ),
+            CapabilityAction(
+                "send",
+                "发送留言",
+                "contact",
+                ("content",),
+                ("content",),
+                examples=("给女儿说晚点回电话", "给儿子留句话，说我挺好的"),
+            ),
         ),
     ),
     CapabilitySpec(
@@ -130,7 +168,15 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         "daily.companion",
         IntentKind.COMPANION,
         "提供简短、非医疗的陪伴回应",
-        (CapabilityAction("chat", "轻量陪聊", parameter_names=("reply",), required_parameters=("reply",), examples=("陪我聊聊天", "我想女儿了")),),
+        (
+            CapabilityAction(
+                "chat",
+                "轻量陪聊",
+                parameter_names=("reply",),
+                required_parameters=("reply",),
+                examples=("陪我聊聊天", "陪我说会儿话", "今天有点闷，陪我聊聊", "今天怎么没人来看我", "我想女儿了"),
+            ),
+        ),
     ),
 )
 
