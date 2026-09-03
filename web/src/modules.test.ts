@@ -207,4 +207,21 @@ describe("resolveAction", () => {
     });
     expect(resolveAction("body", "变孔", "帮我变孔").feature).toBe("便孔护理");
   });
+
+  it("routes 把床放平 to posture, not bed-height", () => {
+    // “放平”是情景姿势；此前 整床升降 里的 “把床” 会先截胡，导致误报“床高调好了”。
+    expect(resolveAction("body", "把床放平", "把床放平").feature).toBe("情景姿势");
+    expect(resolveAction("body", "躺平", "帮我躺平").feature).toBe("情景姿势");
+    // 真正的升降请求仍走整床升降。
+    expect(resolveAction("body", "把床降低", "床太高了降一点").feature).toBe("整床升降");
+    expect(resolveAction("body", "下床", "我想下床").feature).toBe("整床升降");
+  });
+
+  it("does not let bare temporal words hijack 留言回顾", () => {
+    // “刚才是谁给我打电话”是通话查询，不该被 上次/刚才 误判成留言回顾。
+    expect(resolveAction("relationship", "谁打来的", "刚才是谁给我打电话").feature).toBe("实时通话");
+    // 但“上次我留言了什么 / 上次留言”仍应命中留言回顾（记忆回顾能力必须保住）。
+    expect(resolveAction("relationship", "回顾留言", "上次我留言了什么").feature).toBe("留言回顾");
+    expect(resolveAction("relationship", "上次留言", "上次留言说了啥").feature).toBe("留言回顾");
+  });
 });

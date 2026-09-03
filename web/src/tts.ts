@@ -53,13 +53,18 @@ export class Speaker {
     const clean = text.trim();
     if (!clean) return;
     this.synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = "zh-CN";
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    if (this.voice) utterance.voice = this.voice;
-    this.synth.speak(utterance);
+    // 按句末标点切成小句，逐句排队朗读：句与句之间自带一个自然停顿，
+    // 比把整段塞进一个 utterance 更有“断句”的呼吸感（用户反馈原声偏“呆”）。
+    for (const sentence of splitSentences(clean)) {
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.lang = "zh-CN";
+      // 面向长者：语速略慢显得从容；音高持平，避免 SAPI 老嗓音拔高发尖。
+      utterance.rate = 0.92;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      if (this.voice) utterance.voice = this.voice;
+      this.synth.speak(utterance);
+    }
   }
 
   /** 打断当前朗读：用户开始说话、切到静音、或新一句到来时都会调用。 */
@@ -69,14 +74,42 @@ export class Speaker {
 
   private pickVoice(): void {
     if (!this.synth) return;
-    const voices = this.synth.getVoices();
+    const voices = this.synth.getVoices().filter((v) => /^zh/i.test(v.lang));
     if (!voices.length) return;
-    // 优先 zh-CN，其次任意中文；都没有则不指定，交给引擎按 lang 选。
-    this.voice =
-      voices.find((v) => /zh[-_]?cn/i.test(v.lang)) ??
-      voices.find((v) => /^zh/i.test(v.lang)) ??
-      null;
+    // 只在中文嗓音里择优：真机 Chrome 常有“Google 普通话（中国大陆）”这类网络神经嗓音，
+    // 明显比本地 SAPI 老嗓音自然；本自动化环境只有微软本地嗓音时则退而求其次挑较不生硬的。
+    this.voice = voices.slice().sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] ?? null;
   }
+}
+
+/** 给中文嗓音打分：分越高越自然。用于在设备实际可用的嗓音里择优。 */
+function scoreVoice(v: SpeechSynthesisVoice): number {
+  const name = v.name.toLowerCase();
+  let score = 0;
+  // 网络/神经嗓音最自然：Google 普通话、Edge 的 Xiaoxiao/Yunxi 等。
+  if (name.includes("google")) score += 100;
+  if (/(xiaoxiao|xiaoyi|yunxi|yunyang|yunjian|晓晓|云希)/i.test(v.name)) score += 90;
+  // Apple 的中文嗓音（Tingting/Meijia/Sinji）也较自然。
+  if (/(tingting|ting-ting|meijia|mei-jia|sinji|婷婷|美佳)/i.test(v.name)) score += 60;
+  // 微软本地三支里，Yaoyao 比默认的 Huihui/Kangkang 略柔和。
+  if (/(yaoyao|遥遥)/i.test(v.name)) score += 20;
+  // 网络嗓音（非本地）通常更新更自然，作次要加权。
+  if (!v.localService) score += 30;
+  // 简中优先。
+  if (/zh[-_]?cn/i.test(v.lang)) score += 10;
+  return score;
+}
+
+/**
+ * 按句末标点（。！？；及换行）切句，保留短句完整、去掉空白片段。
+ * 没有句末标点时原样返回单句，绝不吞字。
+ */
+function splitSentences(text: string): string[] {
+  const parts = text
+    .split(/(?<=[。！？；!?;\n])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length ? parts : [text];
 }
 
 function readEnabled(): boolean {

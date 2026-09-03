@@ -59,7 +59,7 @@ app.innerHTML = `
           <span class="mic__wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
         </button>
         <input id="entry-input" type="text" aria-label="输入想说的话"
-          placeholder="跟我说一句，或在这儿打字——比如“帮我把靠背升高一点”" />
+          placeholder="跟我说一句，或在这儿打字" />
         <button type="submit" class="composer__send" id="entry-send">发送</button>
       </form>
       <p class="composer__hint" id="composer-hint" aria-live="polite"></p>
@@ -280,7 +280,7 @@ function renderThread() {
     parts.push(`<div class="chat__empty">
       <span class="chat__empty-mark" aria-hidden="true"><img src="/jd_icon.webp" alt="" /></span>
       <p class="chat__empty-title">您好，我在这儿</p>
-      <p class="chat__empty-sub">说一句，或直接打字都行——<br/>调体位、做提醒、联系家人、打理生活琐事，都可以交给我。</p>
+      <p class="chat__empty-sub">说一句，或直接打字都行<br/>调体位、做提醒、联系家人、打理生活琐事<br/>都可以交给我</p>
     </div>`);
   }
   let lastShownAt = 0;
@@ -380,12 +380,17 @@ async function handleUtterance(text: string) {
     await renderResult(turn);
     pendingUser = null;
     renderThread();
+    // 成功才清空输入框。
+    entryInput.value = "";
     // 只读对话气泡里的这句口语回复；管道阶段、部件名、床边状态不朗读。
     speaker.speak(assistantText(turn));
   } catch (error) {
     pendingUser = null;
     renderThread();
     pipelineError();
+    // 出错不吞话：把这句原样放回输入框并聚焦，长者/护理者按一下发送即可重试，不必重打。
+    entryInput.value = clean;
+    entryInput.focus();
     if (error instanceof GlmNotConfiguredError) {
       showKeygate();
       composerHint.textContent = "还没有配置 API Key，请在下方填写后重试。";
@@ -397,7 +402,6 @@ async function handleUtterance(text: string) {
   } finally {
     busy = false;
     entrySend.disabled = false;
-    entryInput.value = "";
   }
 }
 
@@ -428,7 +432,11 @@ function toggleListening() {
     onFinal: (t) => void handleUtterance(t),
     onError: (message) => {
       setListening(false);
-      if (message) composerHint.textContent = message;
+      if (message) {
+        composerHint.textContent = message;
+        // 语音这条路走不通时，直接把焦点落到输入框，让“改用打字”零点击衔接。
+        entryInput.focus();
+      }
     },
     onEnd: () => setListening(false),
   });

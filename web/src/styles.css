@@ -371,17 +371,29 @@ input:focus-visible {
 .composer input::placeholder { color: var(--muted); }
 .composer__send {
   flex: 0 0 auto;
-  padding: 0 18px;
+  padding: 0 22px;
   height: 46px;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--accent-body) 32%, var(--paper-edge));
   border-radius: 12px;
-  color: var(--paper);
-  background: var(--plum);
+  color: var(--accent-body);
+  /* 与左侧 mic 同款“幽灵键”：浅暖底 + 描边 + 彩色字，两端对称、通体柔和。
+     前几版都是“白字压在实心浓色块”上，是全页唯一的重色元素，故显违和；
+     根因是配重与饱和度，不是色相。此处收进 mic 的同一套语言里。 */
+  background: color-mix(in srgb, var(--accent-body) 8%, var(--paper));
   font-weight: 600;
-  transition: background 0.2s ease;
+  letter-spacing: 0.02em;
+  transition: transform 0.2s ease, background 0.25s ease, border-color 0.2s ease;
 }
-.composer__send:hover:not(:disabled) { background: #8f4a5f; }
-.composer__send:disabled { opacity: 0.55; cursor: default; }
+.composer__send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent-body);
+  background: color-mix(in srgb, var(--accent-body) 14%, var(--paper));
+}
+.composer__send:active:not(:disabled) {
+  transform: translateY(0);
+  background: color-mix(in srgb, var(--accent-body) 18%, var(--paper));
+}
+.composer__send:disabled { opacity: 0.5; cursor: default; }
 .composer__hint {
   min-height: 20px;
   margin: -4px 20px 12px;
@@ -533,7 +545,6 @@ input:focus-visible {
   gap: 4px;
   padding: 13px 15px;
   border: 1px solid var(--paper-edge);
-  border-left: 3px solid var(--paper-edge);
   border-radius: 14px;
   background: rgba(255, 250, 243, 0.6);
   transition: border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease;
@@ -556,8 +567,7 @@ input:focus-visible {
 .board__cell[data-state="idle"] { opacity: 0.72; }
 
 .board__cell[data-state="filled"] {
-  border-color: var(--paper-edge);
-  border-left-color: var(--flow-accent, var(--plum));
+  border-color: var(--flow-accent, var(--plum));
   background: color-mix(in srgb, var(--flow-accent, var(--plum)) 8%, var(--paper));
   box-shadow: 0 8px 20px color-mix(in srgb, var(--flow-accent, var(--plum)) 12%, transparent);
 }
@@ -641,6 +651,13 @@ input:focus-visible {
   /* flex 子项默认 min-height:auto 会被内容撑高；这里钉死行高，
      让对话列在内部滚动而不是撑破视口。 */
   .stage { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  /* 右列同样服从行高，别被内容顶破；overflow 兜底，任何残余都不许溢出圆角卡片。 */
+  .pipeline { min-height: 0; overflow: hidden; }
+  /* 视口偏矮时，让四段流程区自行压缩并内部滚动，
+     把“床边状态”板始终留在卡片内、常驻可见（board 为 flex:0 0 auto，不参与收缩）。
+     只纵向滚动；overflow-x 显式 hidden，否则 active 阶段的 translateX(2px) 会因规范把
+     overflow-x 计算成 auto 而冒出一条多余的横向滚动条。 */
+  .flow { min-height: 0; overflow-y: auto; overflow-x: hidden; }
 }
 @media (max-width: 900px) {
   .stage { grid-template-columns: 1fr; }
