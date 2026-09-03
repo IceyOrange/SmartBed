@@ -429,7 +429,17 @@ function toggleListening() {
   if (started) setListening(true);
 }
 
-mic.addEventListener("click", toggleListening);
+// —— 麦克风触发：桌面 click 为主；移动端 click 常被软键盘/手势吞掉，
+//    用 pointerup 兜底。两者共享一个去抖闸门，避免同一次点按触发两次。 ——
+let lastMicTap = 0;
+function triggerMic() {
+  const now = Date.now();
+  if (now - lastMicTap < 350) return; // 350ms 内视为同一次点按
+  lastMicTap = now;
+  toggleListening();
+}
+mic.addEventListener("click", triggerMic);
+mic.addEventListener("pointerup", triggerMic);
 
 entryForm.addEventListener("submit", (event) => {
   event.preventDefault();

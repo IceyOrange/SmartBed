@@ -17,6 +17,11 @@ interface SpeechRecognitionEvent extends Event {
   readonly resultIndex: number;
   readonly results: SpeechRecognitionResultList;
 }
+function isFinalResult(r: SpeechRecognitionResult): boolean {
+  // 规范里 isFinal=true 才是定稿。部分移动端 WebView 里 isFinal 永远为假、
+  // 而 length 会随用户停口增长到 1——这时才把它当定稿，避免把半截中间结果发出去。
+  return r.isFinal || r.length > 0;
+}
 interface SpeechRecognitionErrorEvent extends Event {
   readonly error: string;
 }
@@ -65,7 +70,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 const START_TIMEOUT_MS = 5000; // 守护 start() 到 onstart 之间的静默卡死
-const SILENCE_TIMEOUT_MS = 6000; // onstart 后一直没收到话：先静默重启，仍无声才收尾
 const MAX_RESTARTS = 2; // 累计静默/提前收尾后允许的无感重启次数，防无限循环
 
 /**
@@ -82,7 +86,6 @@ export class SpeechInput {
   private stopping = false;
   private restarts = 0;
   private startTimer: number | null = null;
-  private silenceTimer: number | null = null;
 
   get listening(): boolean {
     return this.active;
@@ -118,28 +121,32 @@ export class SpeechInput {
     recognition.onstart = () => {
       this.active = true;
       this.clearStartTimer();
-      this.armSilenceTimer();
     };
 
     recognition.onresult = (event) => {
-      this.resetSilenceTimer();
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         const transcript = result[0]?.transcript ?? "";
-        if (result.isFinal) {
+        if (isFinalResult(result)) {
           const finalText = transcript.trim();
           // 只认第一次最终结果，避免连续模式下多段 final 重复回调。
           if (finalText && !this.gotFinal) {
             this.gotFinal = true;
+            this.stopping = true; // 一旦拿到定稿，禁止 onend 再走重启分支
             this.callbacks?.onFinal(finalText);
+            try {
+              recognition.stop();
+            } catch {
+              /* 忽略：stop 抛错至少 onFinal 已发出 */
+            }
+            return;
           }
         } else {
           interim += transcript;
         }
       }
       if (interim.trim()) this.callbacks?.onInterim(interim.trim());
-      if (this.gotFinal) this.stop();
     };
 
     recognition.onerror = (event) => {
@@ -147,11 +154,10 @@ export class SpeechInput {
       if (message) this.callbacks?.onError(message);
     };
 
-    // 所有终止路径都汇聚到此：拿到话、用户主动停、或重启次数耗尽后收尾。
-    // 仍在听、又没拿到话时，浏览器可能自行收尾——静默重启一次把声音接住。
+    // 兜底：如果识别器一直既不 onstart 也不 onend，可能卡在未知状态。
+    // 这里不再依赖 onstart 打标，只要有最终结果就立即收尾。
     recognition.onend = () => {
       this.clearStartTimer();
-      this.clearSilenceTimer();
       if (this.gotFinal || this.stopping || !this.active) {
         this.finish();
         return;
@@ -189,7 +195,6 @@ export class SpeechInput {
 
   private finish(): void {
     this.clearStartTimer();
-    this.clearSilenceTimer();
     this.active = false;
     this.recognition = null;
     const cb = this.callbacks;
@@ -197,37 +202,10 @@ export class SpeechInput {
     cb?.onEnd();
   }
 
-  /** onstart 后一直收不到话的兜底：清掉当前识别，交给 onend 决定重启或收尾。 */
-  private armSilenceTimer(): void {
-    this.clearSilenceTimer();
-    this.silenceTimer = window.setTimeout(() => {
-      this.silenceTimer = null;
-      if (this.gotFinal || this.stopping) return;
-      try {
-        this.recognition?.abort();
-      } catch {
-        /* 忽略 */
-      }
-    }, SILENCE_TIMEOUT_MS);
-  }
-
-  /** 每收到一次结果就重新计静默时长，给说话中的自然停顿留出余量。 */
-  private resetSilenceTimer(): void {
-    this.clearSilenceTimer();
-    if (this.active) this.armSilenceTimer();
-  }
-
   private clearStartTimer(): void {
     if (this.startTimer !== null) {
       window.clearTimeout(this.startTimer);
       this.startTimer = null;
-    }
-  }
-
-  private clearSilenceTimer(): void {
-    if (this.silenceTimer !== null) {
-      window.clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
     }
   }
 }

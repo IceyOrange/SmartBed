@@ -331,6 +331,12 @@ input:focus-visible {
   color: var(--plum);
   display: grid;
   place-items: center;
+  /* 禁用 iOS 双击缩放：移动端快速连点麦克风不该把页面放大 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.3s ease, border-color 0.2s ease;
 }
 .mic:hover {
@@ -699,7 +705,7 @@ input:focus-visible {
 /* —— 输入条：贴着键盘常驻，发送/麦克风保持 44px 触控目标 —— */
 @media (max-width: 720px) {
   .composer { padding: 10px 12px; gap: 7px; }
-  .mic { width: 44px; height: 44px; border-radius: 11px; }
+  .mic { width: 48px; height: 48px; border-radius: 12px; touch-action: manipulation; }
   .mic__glyph { font-size: 18px; }
   .composer input { min-width: 0; padding: 11px 12px; font-size: 16px; border-radius: 11px; }
   .composer__send { height: 44px; padding: 0 16px; border-radius: 11px; font-size: 14px; }
