@@ -413,10 +413,10 @@ function toggleListening() {
 }
 
 // —— 麦克风长按收音（移动端核心交互）——
-// 按住＝开始收音，松手＝结束并发送。连续模式会在松手时主动 stop，
-// 浏览器会把已识别到的话作为最终结果回吐。桌面鼠标同用 pointer 事件。
-let micPressTimer: number | null = null;
-let micPressed = false;
+// 按下＝开始收音，抬起＝结束并发送。移动端用 touch 事件、桌面用 mouse，
+// 各自独立，不混用 pointer（部分 WebView/软键盘下 pointer 序列会丢中间态、
+// 或被 focus 抢占，导致“按了没反应”）。开始直接收音，不做延迟计时。
+let micRecording = false;
 
 function jsMicStart() {
   if (busy || speech.listening) return;
@@ -442,56 +442,31 @@ function jsMicStop() {
   if (speech.listening) speech.stop();
 }
 
-mic.addEventListener("pointerdown", (e) => {
-  e.preventDefault(); // 阻止后续合成 click/聚焦跳动
-  if (busy) return;
-  micPressed = true;
-  micTimerStart();
-  try {
-    mic.setPointerCapture?.(e.pointerId);
-  } catch {
-    /* 某些浏览器 setPointerCapture 不可用，忽略 */
-  }
-});
-mic.addEventListener("touchstart", (e) => {
-  // 移动端：阻止默认行为，防止长按时页面滚动 / 把焦点切到输入框，
-  // 让按钮能稳定接到完整的 touch 序列。
-  if (busy) return;
+function pressStart(e: Event) {
   e.preventDefault();
-}, { passive: false });
-mic.addEventListener("pointerup", () => {
-  micTimerClear();
-  if (!micPressed) return;
-  micPressed = false;
+  if (busy || micRecording) return;
+  micRecording = true;
+  jsMicStart();
+}
+function pressEnd() {
+  if (!micRecording) return;
+  micRecording = false;
   jsMicStop();
-});
-mic.addEventListener("pointercancel", () => {
-  micTimerClear();
-  if (!micPressed) return;
-  micPressed = false;
-  jsMicStop();
-});
-mic.addEventListener("pointerleave", () => {
-  // 手指滑出按钮：视为放弃收音，直接结束（不发送半截需求）。
-  micTimerClear();
-  if (!micPressed) return;
-  micPressed = false;
-  jsMicStop();
-});
+}
 
-function micTimerStart() {
-  micTimerClear();
-  micPressTimer = window.setTimeout(() => {
-    micPressTimer = null;
-    jsMicStart();
-  }, 120);
-}
-function micTimerClear() {
-  if (micPressTimer !== null) {
-    window.clearTimeout(micPressTimer);
-    micPressTimer = null;
-  }
-}
+// 移动端：touch 事件最可靠，preventDefault 阻断 click/focus 抢占。
+mic.addEventListener("touchstart", pressStart, { passive: false });
+mic.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  pressEnd();
+});
+mic.addEventListener("touchcancel", pressEnd);
+
+// 桌面：无 touch 时用 mouse 事件（pointerup 在部分环境与 touchend 重复触发，
+// 这里刻意不用 pointer，避免二次 stop）。
+mic.addEventListener("mousedown", pressStart);
+mic.addEventListener("mouseup", pressEnd);
+mic.addEventListener("mouseleave", pressEnd);
 
 entryForm.addEventListener("submit", (event) => {
   event.preventDefault();
