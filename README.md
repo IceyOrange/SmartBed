@@ -27,7 +27,7 @@ GLM_MODEL=glm-5.3-flash
 GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 ```
 
-> 本地开发时，`web/api/chat.ts` 是一个 Vercel Function，`vite dev` 不会转发它；要用
+> 本地开发时，`api/chat.ts` 是一个 Vercel Function，`vite dev` 不会转发它；要用
 > `vercel dev` 或直接跑在 Vercel 上测试。纯本地静态预览需另接一层网关，见下方「本地代理」。
 
 ### Vercel 部署（Key 存在服务端，前端看不到）
@@ -38,7 +38,7 @@ GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 
 可选 `GLM_MODEL`、`GLM_API_URL` 覆盖默认值。**不要用 `VITE_` 前缀**——那是给前端打包用的，不带前缀才会只留在服务端。
 
-前端发起的所有请求都打到同源 `POST /api/chat`，由 `web/api/chat.ts`（Vercel Serverless Function）在服务端拼接 `Bearer` 头转发给 GLM。浏览器里从头到尾看不到 Key。
+前端发起的所有请求都打到同源 `POST /api/chat`，由 `api/chat.ts`（Vercel Serverless Function）在服务端拼接 `Bearer` 头转发给 GLM。浏览器里从头到尾看不到 Key。
 
 ### 本地代理（可选）
 
@@ -81,10 +81,10 @@ npm --prefix web run build   # 类型检查 + 生产构建
 ## 结构
 
 ```
+api/
+  chat.ts          服务端代理：Vercel Function，持有 Key 并转发 GLM
 web/
   index.html
-  api/
-    chat.ts        服务端代理：Vercel Function，持有 Key 并转发 GLM
   src/
     main.ts        输入 → 识别 → 渲染的组装层
     glm.ts         前端 GLM 客户端（走同源 /api/chat，非流式、json_object）
