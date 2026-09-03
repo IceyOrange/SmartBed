@@ -1,5 +1,5 @@
 import "./styles.css";
-import { MODULES, FEATURE_CATALOG, mapIntent, parseModelJson, resolveAction, type ModuleId } from "./modules";
+import { MODULES, FEATURE_CATALOG, mapIntentWithFallback, parseModelJson, resolveAction, type ModuleId } from "./modules";
 import {
   completeIntent,
   GlmNotConfiguredError,
@@ -362,7 +362,7 @@ async function handleUtterance(text: string) {
   try {
     const messages = session.buildMessages(clean);
     const content = await completeIntent(messages);
-    const mapped = mapIntent(parseModelJson(content));
+    const mapped = mapIntentWithFallback(parseModelJson(content), clean);
     const turn = session.record(clean, mapped);
     await renderResult(turn);
     pendingUser = null;

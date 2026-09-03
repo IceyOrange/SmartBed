@@ -1,5 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { mapIntent, parseModelJson, resolveAction } from "./modules";
+import { mapIntent, mapIntentWithFallback, fallbackModule, parseModelJson, resolveAction } from "./modules";
+
+describe("fallbackModule", () => {
+  it("routes an unclassified body request to body", () => {
+    expect(fallbackModule("帮我翻个身")).toBe("body");
+  });
+  it("routes emergencies and help-me requests to care before body", () => {
+    expect(fallbackModule("我要便盆")).toBe("care");
+    expect(fallbackModule("我喘不上气了")).toBe("care");
+  });
+  it("routes family requests to relationship", () => {
+    expect(fallbackModule("给女儿打个电话")).toBe("relationship");
+    expect(fallbackModule("给孙子留句话")).toBe("relationship");
+  });
+  it("routes daily requests to daily", () => {
+    expect(fallbackModule("播放一段京剧")).toBe("daily");
+    expect(fallbackModule("想闺女了跟我说说话")).toBe("daily");
+  });
+  it("returns null when nothing matches", () => {
+    expect(fallbackModule("随便说说")).toBeNull();
+  });
+});
+
+describe("mapIntentWithFallback", () => {
+  it("keeps a confident model result unchanged", () => {
+    const mapped = mapIntentWithFallback({ module: "body", intent: "翻身", confidence: 0.9 }, "帮我翻个身");
+    expect(mapped.module).toBe("body");
+  });
+  it("rescues an unknown model result via rules", () => {
+    const mapped = mapIntentWithFallback({ module: "unknown", intent: "没有听清", confidence: 0.2 }, "我要便盆");
+    expect(mapped.module).toBe("care");
+  });
+  it("leaves truly unmatched unknown as unknown", () => {
+    const mapped = mapIntentWithFallback({ module: "unknown", intent: "", confidence: 0.1 }, "啊啦啦啦");
+    expect(mapped.module).toBe("unknown");
+  });
+});
 
 describe("parseModelJson", () => {
   it("parses clean JSON", () => {

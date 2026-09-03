@@ -107,6 +107,30 @@ export function mapIntent(raw: unknown, minimumConfidence = 0.55): MappedIntent 
 }
 
 /**
+ * 让 mapIntent 在归类不可信时自动落到规则兜底：主路径仍是模型，
+ * 只有当模型给 unknown 或低于阈值时，才用确定性关键词表救回来。
+ * 与 mapIntent 保持同一 confidence 阈值，避免规则误抢正常识别。
+ */
+export function mapIntentWithFallback(
+  raw: unknown,
+  userText: string,
+  minimumConfidence = 0.55,
+): MappedIntent {
+  const mapped = mapIntent(raw, minimumConfidence);
+  if (mapped.module !== "unknown") return mapped;
+
+  const fallback = fallbackModule(userText);
+  if (!fallback) return mapped;
+
+  return {
+    ...mapped,
+    module: fallback,
+    intent: mapped.intent && mapped.intent !== "没有听清" ? mapped.intent : fallback,
+    detail: mapped.detail && !mapped.detail.includes("没有明确对应") ? mapped.detail : "",
+  };
+}
+
+/**
  * 单个预写功能：功能名、匹配关键词（顺序即优先级）、命中后的确定性反馈，
  * 以及该功能会驱动的真实部件/子系统名（用于“语音→意图→功能→部件”展示）。
  */
@@ -203,6 +227,66 @@ export function resolveAction(
     }
   }
   return { feature: "", action: catalog.defaultAction, component: catalog.defaultComponent, state: catalog.defaultState };
+}
+
+/**
+ * 模块级规则兜底关键词：大模型无法给出可信归类（unknown / 低于阈值 / 缺 module）
+ * 时，用这套「动作词 → 模块」做确定性匹配。只作兜底，主路径仍是模型识别。
+ * 顺序即优先级：先应急/搭把手，再体位，再家人，最后日常；unknown 不主动兜底。
+ */
+const MODULE_RULES: Array<{ module: Exclude<ModuleId, "unknown">; match: string[] }> = [
+  {
+    module: "care",
+    match: [
+      // 应急 + 搭把手（务必在 body 的“便孔/大小便”“翻身”之前命中）
+      "救命", "叫人", "快来", "护理员", "护工", "护士", "急救",
+      "摔", "喘不过", "喘不上", "憋气", "胸闷", "心慌", "气短", "剧痛", "疼得", "难受", "晕",
+      "上厕所", "如厕", "便盆", "扶我", "扶一", "搭把手", "没人递",
+      // 提醒 + 记录
+      "提醒", "别忘", "闹钟", "到点", "定时", "记一下", "记录", "吃药", "服药", "用药", "量了", "血压", "体温", "心率", "待办",
+    ],
+  },
+  {
+    module: "body",
+    match: [
+      "靠背", "背", "床头", "头抬", "抬高头", "摇高", "摇起来", "坐起", "坐直", "起身", "扶起",
+      "腿托", "抬腿", "抬脚", "屈膝", "床高", "整床", "升降", "升床", "降床", "下床", "上床",
+      "翻身", "侧翻", "侧身", "躺平", "放平", "半躺", "斜躺", "姿势", "体位",
+      "便孔", "变孔", "接便", "坐便", "大小便", "停", "别动", "复位", "归位",
+    ],
+  },
+  {
+    module: "relationship",
+    match: [
+      "打电话", "接通", "通话", "视频", "连线", "拨", "打给", "联系",
+      "留言", "捎", "带话", "带个话", "带句话", "留句话", "留个言", "转告", "报平安", "发语音", "发条语音",
+      "祝福", "生日", "纪念", "问候",
+    ],
+  },
+  {
+    module: "daily",
+    match: [
+      "天气", "下雨", "气温", "温度", "冷吗", "热吗", "刮风", "预报",
+      "星期几", "周几", "礼拜几", "几号", "安排", "日程", "计划",
+      "播放", "来一段", "来首", "京剧", "音乐", "评书", "相声", "广播", "读报", "报纸", "新闻", "故事", "笑话",
+      "记事", "备忘", "放在", "在哪", "记住",
+      "聊", "陪我", "说说话", "孤单", "无聊", "闷", "解闷", "睡不着", "想你们",
+    ],
+  },
+];
+
+/**
+ * 规则兜底：当模型归类不可信（module 为 unknown 或 confidence 低于阈值）时，
+ * 按优先级在用户原话里做确定性动作词匹配，返回首个命中的模块；全不命中返回 null。
+ * 纯函数、确定性：同一句话永远得到同一结果。
+ */
+export function fallbackModule(userText: string): Exclude<ModuleId, "unknown"> | null {
+  // 去掉中间助词再匹配，让“翻个身 → 翻身”“打个电话 → 打电话”这类口语变体也能命中。
+  const hay = userText.replace(/[个一下了都帮我给请把来个就这那的着吗呀啊嗯哦]/g, "");
+  for (const rule of MODULE_RULES) {
+    if (rule.match.some((kw) => hay.includes(kw))) return rule.module;
+  }
+  return null;
 }
 
 /** 从模型返回的文本里尽力解析出 JSON 对象。 */
