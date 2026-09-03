@@ -22,20 +22,28 @@
 复制 `web/.env.example` 为 `web/.env`，填入 Key：
 
 ```
-VITE_GLM_API_KEY=你的key
-VITE_GLM_MODEL=glm-5.3-flash
-VITE_GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+GLM_API_KEY=你的key
+GLM_MODEL=glm-5.3-flash
+GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 ```
 
-### Vercel 部署（通过环境变量引入 Key，页面不再要求粘贴）
+> 本地开发时，`web/api/chat.ts` 是一个 Vercel Function，`vite dev` 不会转发它；要用
+> `vercel dev` 或直接跑在 Vercel 上测试。纯本地静态预览需另接一层网关，见下方「本地代理」。
+
+### Vercel 部署（Key 存在服务端，前端看不到）
 
 在 Vercel 项目的 **Settings → Environment Variables** 里添加：
 
-- `VITE_GLM_API_KEY` = 你的 GLM Key
+- `GLM_API_KEY` = 你的 GLM Key
 
-部署时构建命令会把它注入前端。也可选配 `VITE_GLM_MODEL`、`VITE_GLM_API_URL` 覆盖默认值。
+可选 `GLM_MODEL`、`GLM_API_URL` 覆盖默认值。**不要用 `VITE_` 前缀**——那是给前端打包用的，不带前缀才会只留在服务端。
 
-> 安全提示：`VITE_` 前缀的环境变量会被打包进前端 JS，浏览器能读到**明文 Key**。这是「浏览器直连 GLM、无后端」架构决定的——若要把 Key 真正藏起来，须加一层服务端代理（Serverless Function）。纯前端方案在公网会暴露 Key，请自行评估风险。
+前端发起的所有请求都打到同源 `POST /api/chat`，由 `web/api/chat.ts`（Vercel Serverless Function）在服务端拼接 `Bearer` 头转发给 GLM。浏览器里从头到尾看不到 Key。
+
+### 本地代理（可选）
+
+纯静态预览时没有 `/api/chat` 后端。想在本地也走通，可在 `web/vite.config.ts` 里加一层
+`server.proxy` 把 `/api` 转发到 `vercel dev` 起的本地网关；正式体验建议直接用 `vercel dev`。
 
 ## 启动
 
@@ -65,9 +73,11 @@ npm --prefix web run build   # 类型检查 + 生产构建
 ```
 web/
   index.html
+  api/
+    chat.ts        服务端代理：Vercel Function，持有 Key 并转发 GLM
   src/
     main.ts        输入 → 识别 → 渲染的组装层
-    glm.ts         浏览器版 GLM 客户端（非流式、json_object）
+    glm.ts         前端 GLM 客户端（走同源 /api/chat，非流式、json_object）
     prompt.ts      面向“意图→模块”的精简系统提示词
     modules.ts     四个模块定义 + GLM JSON → 模块 的纯映射（含单测）
     session.ts     会话记忆：本次页面内的对话历史
