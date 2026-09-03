@@ -8,6 +8,7 @@ import {
 import { Session, type DialogueTurn } from "./session";
 import { isSpeechSupported, SpeechInput } from "./speech";
 import { Speaker } from "./tts";
+import { registerServiceWorker } from "./sw";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const session = new Session();
@@ -470,3 +471,4 @@ if (speaker.available) {
 }
 pipelineReset();
 renderThread();
+registerServiceWorker();
