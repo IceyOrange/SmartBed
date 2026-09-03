@@ -111,7 +111,6 @@ function glmBody(attempt: GlmAttempt, messages: ChatMessage[]) {
       messages,
       temperature: 0.2,
       top_p: 0.8,
-      thinking: { type: "enabled" },
       stream: false,
       response_format: { type: "json_object" },
     }),
