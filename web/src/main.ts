@@ -52,7 +52,7 @@ app.innerHTML = `
       <div class="quick" id="quick-row" aria-label="试着这样说"></div>
       <form class="composer" id="entry-form" autocomplete="off">
         <button type="button" class="mic" id="mic" aria-pressed="false"
-          aria-label="点击说话，或按住讲话">
+          aria-label="按住说话，松开发送">
           <span class="mic__glyph" aria-hidden="true">🎙</span>
           <span class="mic__wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
         </button>
@@ -395,7 +395,7 @@ async function handleUtterance(text: string) {
 function setListening(on: boolean) {
   mic.dataset.listening = String(on);
   mic.setAttribute("aria-pressed", String(on));
-  composerHint.textContent = on ? "正在听…说完自动结束，或再次点击停止" : "";
+  composerHint.textContent = on ? "正在听…松开即发送" : "";
 }
 
 function toggleListening() {
@@ -409,7 +409,17 @@ function toggleListening() {
     speech.stop();
     return;
   }
-  // 打断朗读：用户要开口了，别让上一句还在念。
+  jsMicStart();
+}
+
+// —— 麦克风长按收音（移动端核心交互）——
+// 按住＝开始收音，松手＝结束并发送。连续模式会在松手时主动 stop，
+// 浏览器会把已识别到的话作为最终结果回吐。桌面鼠标同用 pointer 事件。
+let micPressTimer: number | null = null;
+let micPressed = false;
+
+function jsMicStart() {
+  if (busy || speech.listening) return;
   speaker.cancel();
   const started = speech.start({
     onInterim: (t) => {
@@ -420,7 +430,6 @@ function toggleListening() {
       setListening(false);
       if (message) {
         composerHint.textContent = message;
-        // 语音这条路走不通时，直接把焦点落到输入框，让“改用打字”零点击衔接。
         entryInput.focus();
       }
     },
@@ -429,17 +438,50 @@ function toggleListening() {
   if (started) setListening(true);
 }
 
-// —— 麦克风触发：桌面 click 为主；移动端 click 常被软键盘/手势吞掉，
-//    用 pointerup 兜底。两者共享一个去抖闸门，避免同一次点按触发两次。 ——
-let lastMicTap = 0;
-function triggerMic() {
-  const now = Date.now();
-  if (now - lastMicTap < 350) return; // 350ms 内视为同一次点按
-  lastMicTap = now;
-  toggleListening();
+function jsMicStop() {
+  if (speech.listening) speech.stop();
 }
-mic.addEventListener("click", triggerMic);
-mic.addEventListener("pointerup", triggerMic);
+
+mic.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); // 阻止后续合成 click/聚焦跳动
+  if (busy) return;
+  micPressed = true;
+  micTimerStart();
+  mic.setPointerCapture?.(e.pointerId);
+});
+mic.addEventListener("pointerup", () => {
+  micTimerClear();
+  if (!micPressed) return;
+  micPressed = false;
+  jsMicStop();
+});
+mic.addEventListener("pointercancel", () => {
+  micTimerClear();
+  if (!micPressed) return;
+  micPressed = false;
+  jsMicStop();
+});
+mic.addEventListener("pointerleave", () => {
+  // 手指滑出按钮：视为放弃收音，直接结束（不发送半截需求）。
+  micTimerClear();
+  if (!micPressed) return;
+  micPressed = false;
+  jsMicStop();
+});
+
+function micTimerStart() {
+  micTimerClear();
+  micPressTimer = window.setTimeout(() => {
+    micPressTimer = null;
+    jsMicStart();
+  }, 120);
+}
+function micTimerClear() {
+  if (micPressTimer !== null) {
+    window.clearTimeout(micPressTimer);
+    micPressTimer = null;
+  }
+}
 
 entryForm.addEventListener("submit", (event) => {
   event.preventDefault();
