@@ -19,7 +19,7 @@
 
 ### 本地开发
 
-复制 `web/.env.example` 为 `web/.env`，填入 Key：
+复制 `.env.example` 为项目根目录 `.env`（不是 `web/.env`），填入 Key：
 
 ```
 GLM_API_KEY=你的key
@@ -27,8 +27,8 @@ GLM_MODEL=glm-5.3-flash
 GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 ```
 
-> 本地开发时，`api/chat.ts` 是一个 Vercel Function，`vite dev` 不会转发它；要用
-> `vercel dev` 或直接跑在 Vercel 上测试。纯本地静态预览需另接一层网关，见下方「本地代理」。
+> 函数 `api/chat.ts` 只读**项目根目录**的 `.env`。本地开发时它经 `vercel dev` 运行，
+> 纯 `vite dev` 不会执行它；要完整跑通需同时起两个进程，见下方「本地代理」。
 
 ### Vercel 部署（Key 存在服务端，前端看不到）
 
@@ -40,13 +40,13 @@ GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 
 前端发起的所有请求都打到同源 `POST /api/chat`，由 `api/chat.ts`（Vercel Serverless Function）在服务端拼接 `Bearer` 头转发给 GLM。浏览器里从头到尾看不到 Key。
 
-### 本地代理（可选）
+### 本地代理
 
 本地完整跑通需同时起静态站（`vite dev`，5173）与函数网关（`vercel dev`，3000），
 `web/vite.config.ts` 已内置 `server.proxy` 把 `/api` 转发到 3000 端口：
 
 ```powershell
-# 终端 A：起 Vercel 函数（天然读到 web/.env 里的 GLM_API_KEY）
+# 终端 A：起 Vercel 函数（读到项目根目录 .env 里的 GLM_API_KEY）
 npx vercel dev
 
 # 终端 B：起 Vite 静态站，/api 自动代理到上面
