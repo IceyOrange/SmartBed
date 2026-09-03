@@ -17,6 +17,8 @@
 
 ## 配置
 
+### 本地开发
+
 复制 `web/.env.example` 为 `web/.env`，填入 Key：
 
 ```
@@ -25,9 +27,15 @@ VITE_GLM_MODEL=glm-5.3-flash
 VITE_GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 ```
 
-未配置 `.env` 时，页面底部会出现输入框，可临时粘贴 Key（仅存在当前浏览器的 localStorage，不上传）。
+### Vercel 部署（通过环境变量引入 Key，页面不再要求粘贴）
 
-> 安全提示：纯前端调用大模型，API Key 会暴露在浏览器中。**仅适合本地或内网演示**，不要部署到公网。
+在 Vercel 项目的 **Settings → Environment Variables** 里添加：
+
+- `VITE_GLM_API_KEY` = 你的 GLM Key
+
+部署时构建命令会把它注入前端。也可选配 `VITE_GLM_MODEL`、`VITE_GLM_API_URL` 覆盖默认值。
+
+> 安全提示：`VITE_` 前缀的环境变量会被打包进前端 JS，浏览器能读到**明文 Key**。这是「浏览器直连 GLM、无后端」架构决定的——若要把 Key 真正藏起来，须加一层服务端代理（Serverless Function）。纯前端方案在公网会暴露 Key，请自行评估风险。
 
 ## 启动
 

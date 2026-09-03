@@ -1,5 +1,3 @@
-const STORAGE_KEY = "care-bed-lite.glm-key";
-
 const ENV_KEY = (import.meta.env.VITE_GLM_API_KEY ?? "").trim();
 const MODEL = (import.meta.env.VITE_GLM_MODEL ?? "glm-5.3-flash").trim() || "glm-5.3-flash";
 const ENDPOINT =
@@ -14,23 +12,9 @@ export interface ChatMessage {
 export class GlmNotConfiguredError extends Error {}
 export class GlmRequestError extends Error {}
 
-/** 读取 API Key：优先构建期注入的 env，其次用户在页面粘贴后存入的 localStorage。 */
+/** 读取 API Key：仅来自由 Vercel 等注入的构建期环境变量，不做浏览器端本地存储。 */
 export function resolveApiKey(): string | null {
-  if (ENV_KEY) return ENV_KEY;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored && stored.trim() ? stored.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveApiKey(key: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, key.trim());
-  } catch {
-    /* localStorage 不可用时忽略，本次会话仍可通过 env 或再次输入使用 */
-  }
+  return ENV_KEY || null;
 }
 
 export function keyComesFromEnv(): boolean {

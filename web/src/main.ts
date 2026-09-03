@@ -4,9 +4,6 @@ import {
   completeIntent,
   GlmNotConfiguredError,
   GlmRequestError,
-  keyComesFromEnv,
-  resolveApiKey,
-  saveApiKey,
 } from "./glm";
 import { Session, type DialogueTurn } from "./session";
 import { isSpeechSupported, SpeechInput } from "./speech";
@@ -79,14 +76,6 @@ app.innerHTML = `
       <div class="board" id="board" aria-label="床边状态"></div>
     </section>
   </main>
-
-  <div class="keygate" id="keygate" hidden>
-    <p>本地演示需要 GLM API Key（仅存在本浏览器，不上传）。</p>
-    <form id="key-form">
-      <input id="key-input" type="password" aria-label="GLM API Key" placeholder="粘贴 GLM API Key" />
-      <button type="submit">保存并使用</button>
-    </form>
-  </div>
 `;
 
 const thread = app.querySelector<HTMLDivElement>("#thread")!;
@@ -102,9 +91,6 @@ const composerHint = app.querySelector<HTMLParagraphElement>("#composer-hint")!;
 const memoryCount = app.querySelector<HTMLElement>("#memory-count")!;
 const inputMode = app.querySelector<HTMLElement>("#input-mode")!;
 const ttsToggle = app.querySelector<HTMLButtonElement>("#tts-toggle")!;
-const keygate = app.querySelector<HTMLDivElement>("#keygate")!;
-const keyForm = app.querySelector<HTMLFormElement>("#key-form")!;
-const keyInput = app.querySelector<HTMLInputElement>("#key-input")!;
 
 // —— 快捷话术：覆盖四个子系统，短语从简，让示例多而不孤零 ——
 const QUICK = [
@@ -392,8 +378,7 @@ async function handleUtterance(text: string) {
     entryInput.value = clean;
     entryInput.focus();
     if (error instanceof GlmNotConfiguredError) {
-      showKeygate();
-      composerHint.textContent = "还没有配置 API Key，请在下方填写后重试。";
+      composerHint.textContent = "还没有配置 API Key，请联系部署者通过环境变量注入。";
     } else if (error instanceof GlmRequestError) {
       composerHint.textContent = error.message;
     } else {
@@ -461,20 +446,6 @@ document.addEventListener("keydown", (event) => {
   toggleListening();
 });
 
-// —— API Key 门 ——
-function showKeygate() {
-  keygate.hidden = false;
-  keyInput.focus();
-}
-keyForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const value = keyInput.value.trim();
-  if (!value) return;
-  saveApiKey(value);
-  keygate.hidden = true;
-  keyInput.value = "";
-  composerHint.textContent = "已保存 Key，可以开始了";
-});
 
 // —— 朗读开关：顶栏常驻，状态本地持久化，不支持时整枚隐藏 ——
 const ttsGlyph = ttsToggle.querySelector<HTMLElement>(".pill--tts__glyph")!;
@@ -499,6 +470,3 @@ if (speaker.available) {
 }
 pipelineReset();
 renderThread();
-if (!resolveApiKey() && !keyComesFromEnv()) {
-  showKeygate();
-}
