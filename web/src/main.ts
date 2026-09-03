@@ -345,7 +345,7 @@ async function renderResult(turn: DialogueTurn) {
   updateBoard(turn.module, state);
 }
 
-// —— 主流程：一句话 → 一次 GLM → 路由到模块 + 预写反馈 ——
+// —— 主流程：一句话 → 一次大模型 → 路由到模块 + 预写反馈 ——
 let busy = false;
 
 async function handleUtterance(text: string) {
@@ -379,7 +379,7 @@ async function handleUtterance(text: string) {
     entryInput.value = clean;
     entryInput.focus();
     if (error instanceof GlmNotConfiguredError) {
-      composerHint.textContent = "还没有配置 API Key，请联系部署者通过环境变量注入。";
+      composerHint.textContent = "还没有配置 Gemini API Key，请联系部署者通过环境变量注入。";
     } else if (error instanceof GlmRequestError) {
       composerHint.textContent = error.message;
     } else {

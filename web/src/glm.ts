@@ -1,5 +1,5 @@
-// 前端不再直连 GLM，也不碰 API Key——一切请求都走同源的服务端代理 /api/chat。
-// Key 只存在于 Vercel 服务端环境变量（GLM_API_KEY），浏览器即使打开 DevTools 也看不到。
+// 前端不直连大模型，也不碰 API Key——一切请求都走同源的服务端代理 /api/chat。
+// Key 只存在于 Vercel 服务端环境变量（GEMINI_API_KEY），浏览器即使打开 DevTools 也看不到。
 // 但前端仍决定请求参数（模型、温度、response_format 等），故这里保留对 buildMessages
 // 结果的透传；真正的鉴权和转发在 web/api/chat.ts 里完成。
 
@@ -51,7 +51,7 @@ export async function completeIntent(messages: ChatMessage[]): Promise<string> {
       /* 保留状态码 */
     }
     if (response.status === 500) {
-      throw new GlmNotConfiguredError("服务端还没有配置 GLM API Key。");
+      throw new GlmNotConfiguredError("服务端还没有配置 Gemini API Key。");
     }
     throw new GlmRequestError(`大模型请求失败（${detail}）。`);
   }

@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// 服务端持有 GLM API Key，前端永远看不到；一到这里就把它放进环境变量。
-const API_KEY = (process.env.GLM_API_KEY ?? "").trim();
-const MODEL = (process.env.GLM_MODEL ?? "glm-5.3-flash").trim() || "glm-5.3-flash";
+// 服务端持有 Gemini API Key，前端永远看不到；一到这里就把它放进环境变量。
+const API_KEY = (process.env.GEMINI_API_KEY ?? "").trim();
+const MODEL = (process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite").trim() || "gemini-3.5-flash-lite";
 const ENDPOINT =
-  (process.env.GLM_API_URL ?? "").trim() || "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+  (process.env.GEMINI_API_URL ?? "").trim() ||
+  `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -18,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
   if (!API_KEY) {
-    res.status(500).json({ error: "服务端未配置 GLM_API_KEY" });
+    res.status(500).json({ error: "服务端未配置 GEMINI_API_KEY" });
     return;
   }
 
@@ -29,27 +30,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // 组装 Gemini 原生请求体：system 单独成 systemInstruction，其余拆成 contents。
+  const systemInstruction =
+    messages.find((m) => m.role === "system")?.content ?? "";
+  const contents = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({
+      role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+      parts: [{ text: m.content }],
+    }));
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
 
   let upstream: Response;
   try {
-    upstream = await fetch(ENDPOINT, {
+    upstream = await fetch(`${ENDPOINT}?key=${encodeURIComponent(API_KEY)}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify({
-        model: MODEL,
-        messages,
-        temperature: 0.2,
-        top_p: 0.8,
-        reasoning_effort: "low",
-        thinking: { type: "enabled" },
-        stream: false,
-        response_format: { type: "json_object" },
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents,
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.8,
+          responseMimeType: "application/json",
+        },
       }),
       signal: controller.signal,
     });
@@ -70,23 +79,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  let payload: { choices?: { message?: { content?: unknown } }[] };
+  let raw: string | null = null;
   try {
-    payload = await upstream.json();
+    const payload = await upstream.json();
+    raw =
+      payload?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
   } catch {
+    /* 走后面的空内容报错 */
+  }
+
+  const content = typeof raw === "string" ? raw.trim() : "";
+  if (!content) {
     res.status(502).json({ error: "大模型返回了无法解析的响应" });
     return;
   }
 
-  const choice = payload.choices?.[0]?.message?.content;
-  const content =
-    typeof choice === "string"
-      ? choice
-      : Array.isArray(choice)
-        ? choice
-            .map((i) => (i && typeof i === "object" && typeof (i as { text?: unknown }).text === "string" ? (i as { text: string }).text : ""))
-            .join("")
-        : "";
-
-  res.status(200).json({ content: content.trim() });
+  res.status(200).json({ content });
 }

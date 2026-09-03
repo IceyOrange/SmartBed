@@ -3,17 +3,17 @@
 一个纯前端的轻量演示：说一句话或打一行字，大模型识别意图后，界面把它映射到对应的护理床功能模块并展示。**只做演示，不驱动任何真实设备。**
 
 - 语音输入用浏览器自带的中文语音识别（Web Speech API），文字输入是稳定兜底。
-- 每句话调用一次大模型（GLM），把用户原话整理成受约束的展示 JSON。
+- 每句话调用一次大模型（Gemini），把用户原话整理成受约束的展示 JSON。
 - 识别结果点亮四个功能模块之一：身体舒适 / 日常照护 / 家人联系 / 日常服务。
 - 保留本次会话的对话历史并随请求带上，因此可以追问“上次我留言了什么”。刷新页面即清空，不用数据库、不做长期存储。
 
-没有后端。浏览器直接调用大模型接口。
+没有自建后端。浏览器通过同源服务端代理调用大模型接口。
 
 ## 环境要求
 
 - Node.js 和 npm
 - 支持 Web Speech API 的浏览器（Chrome / Edge）体验语音；其他浏览器可用文字输入
-- 一个 GLM API Key（智谱开放平台）
+- 一个 Gemini API Key（Google AI Studio）
 
 ## 配置
 
@@ -22,9 +22,9 @@
 复制 `.env.example` 为项目根目录 `.env`（不是 `web/.env`），填入 Key：
 
 ```
-GLM_API_KEY=你的key
-GLM_MODEL=glm-5.3-flash
-GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+GEMINI_API_KEY=你的key
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent
 ```
 
 > 函数 `api/chat.ts` 只读**项目根目录**的 `.env`。本地开发时它经 `vercel dev` 运行，
@@ -34,11 +34,11 @@ GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 
 在 Vercel 项目的 **Settings → Environment Variables** 里添加：
 
-- `GLM_API_KEY` = 你的 GLM Key
+- `GEMINI_API_KEY` = 你的 Gemini Key
 
-可选 `GLM_MODEL`、`GLM_API_URL` 覆盖默认值。**不要用 `VITE_` 前缀**——那是给前端打包用的，不带前缀才会只留在服务端。
+可选 `GEMINI_MODEL`、`GEMINI_API_URL` 覆盖默认值。**不要用 `VITE_` 前缀**——那是给前端打包用的，不带前缀才会只留在服务端。
 
-前端发起的所有请求都打到同源 `POST /api/chat`，由 `api/chat.ts`（Vercel Serverless Function）在服务端拼接 `Bearer` 头转发给 GLM。浏览器里从头到尾看不到 Key。
+前端发起的所有请求都打到同源 `POST /api/chat`，由 `api/chat.ts`（Vercel Serverless Function）在服务端拼接 Key 转发给 Gemini。浏览器里从头到尾看不到 Key。
 
 ### 本地代理
 
@@ -46,7 +46,7 @@ GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 `web/vite.config.ts` 已内置 `server.proxy` 把 `/api` 转发到 3000 端口：
 
 ```powershell
-# 终端 A：起 Vercel 函数（读到项目根目录 .env 里的 GLM_API_KEY）
+# 终端 A：起 Vercel 函数（读到项目根目录 .env 里的 GEMINI_API_KEY）
 npx vercel dev
 
 # 终端 B：起 Vite 静态站，/api 自动代理到上面
@@ -82,14 +82,14 @@ npm --prefix web run build   # 类型检查 + 生产构建
 
 ```
 api/
-  chat.ts          服务端代理：Vercel Function，持有 Key 并转发 GLM
+  chat.ts          服务端代理：Vercel Function，持有 Key 并转发 Gemini
 web/
   index.html
   src/
     main.ts        输入 → 识别 → 渲染的组装层
-    glm.ts         前端 GLM 客户端（走同源 /api/chat，非流式、json_object）
+    glm.ts         前端大模型客户端（走同源 /api/chat，非流式、json_object）
     prompt.ts      面向“意图→模块”的精简系统提示词
-    modules.ts     四个模块定义 + GLM JSON → 模块 的纯映射（含单测）
+    modules.ts     四个模块定义 + 大模型 JSON → 模块 的纯映射（含单测）
     session.ts     会话记忆：本次页面内的对话历史
     speech.ts      Web Speech API 封装 + 文字兜底
     styles.css     配色、朗正体、呼吸光球
