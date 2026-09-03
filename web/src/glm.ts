@@ -19,7 +19,7 @@ export class GlmRequestError extends Error {}
  */
 export async function completeIntent(messages: ChatMessage[]): Promise<string> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 15000);
+  const timer = window.setTimeout(() => controller.abort(), 30000);
 
   let response: Response;
   try {

@@ -147,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const attempt of attempts) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), 8000);
 
     let upstream: Response;
     try {
