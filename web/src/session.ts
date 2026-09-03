@@ -21,6 +21,8 @@ const MAX_CONTEXT_TURNS = 8;
 const STORAGE_KEY = "care-bed-lite.session";
 const SEED_FLAG_KEY = "care-bed-lite.seeded";
 const PATIENT_KEY = "care-bed-lite.patient";
+/** 种子版本：内容每次变化时 +1，让旧用户下次打开清理旧数据、重新种入新对话。 */
+const SEED_VERSION = "2";
 
 /**
  * 会话记忆：用 localStorage 持久化，刷新/下次打开仍保留，
@@ -44,12 +46,12 @@ export class Session {
 
   /** 首次打开时种入预置病人档案 + 家人留言，让体验起点不是空白。 */
   private load(): void {
-    this.turns = readTurns();
+    this.turns = readTurns(SEED_VERSION);
     const now = Date.now();
-    if (!isSeeded()) {
-      this.turns.push(...seedTurns(now));
+    if (!isSeeded(SEED_VERSION)) {
+      this.turns = [...seedTurns(now), ...this.turns.filter((t) => !t.id.startsWith("seed-"))];
       writePatient(patientBlurb());
-      markSeeded();
+      markSeeded(SEED_VERSION);
     }
     this.turns.sort((a, b) => a.at - b.at);
   }
@@ -97,28 +99,34 @@ export class Session {
   }
 }
 
-function readTurns(): DialogueTurn[] {
+function readTurns(version: string): DialogueTurn[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as DialogueTurn[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    const turns = parsed as DialogueTurn[];
+    // 旧版本种子已经过期（结构或文案变过）：只保留用户真实对话，丢弃旧种子。
+    if (localStorage.getItem(SEED_FLAG_KEY) !== version) {
+      return turns.filter((t) => !t.id.startsWith("seed-"));
+    }
+    return turns;
   } catch {
     return [];
   }
 }
 
-function isSeeded(): boolean {
+function isSeeded(version: string): boolean {
   try {
-    return localStorage.getItem(SEED_FLAG_KEY) === "1";
+    return localStorage.getItem(SEED_FLAG_KEY) === version;
   } catch {
     return false;
   }
 }
 
-function markSeeded(): void {
+function markSeeded(version: string): void {
   try {
-    localStorage.setItem(SEED_FLAG_KEY, "1");
+    localStorage.setItem(SEED_FLAG_KEY, version);
   } catch {
     /* 忽略 */
   }
