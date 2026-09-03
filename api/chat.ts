@@ -137,6 +137,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // 请求预检：防超长历史把请求体撑爆（前端已限 8 轮，这里兜底异常输入）。
+  if (messages.length > 40) {
+    res.status(400).json({ error: "消息过多，请精简后再试" });
+    return;
+  }
+  const totalChars = messages.reduce(
+    (sum, m) => sum + (typeof m?.content === "string" ? m.content.length : 0),
+    0,
+  );
+  if (totalChars > 40000) {
+    res.status(400).json({ error: "消息过长，请精简后再试" });
+    return;
+  }
+
   const attempts = buildAttempts();
   if (!attempts.length) {
     res.status(500).json({ error: "服务端未配置任何可用的模型 Key" });

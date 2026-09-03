@@ -114,20 +114,43 @@ export function mapIntent(raw: unknown, minimumConfidence = 0.55): MappedIntent 
 export function mapIntentWithFallback(
   raw: unknown,
   userText: string,
-  minimumConfidence = 0.55,
 ): MappedIntent {
-  const mapped = mapIntent(raw, minimumConfidence);
-  if (mapped.module !== "unknown") return mapped;
+  const mapped = mapIntent(raw);
+  // 拿到模型给出的原始 confidence，用于“灰区复核”判定。
+  const source =
+    raw !== null && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const confidence = asConfidence(source.confidence);
 
-  const fallback = fallbackModule(userText);
-  if (!fallback) return mapped;
+  // 模型未归类时，直接规则兜底。
+  if (mapped.module === "unknown") {
+    const fallback = fallbackModule(userText);
+    if (fallback) {
+      return {
+        ...mapped,
+        module: fallback,
+        intent: mapped.intent && mapped.intent !== "没有听清" ? mapped.intent : fallback,
+        detail: mapped.detail && !mapped.detail.includes("没有明确对应") ? mapped.detail : "",
+      };
+    }
+    return mapped;
+  }
 
-  return {
-    ...mapped,
-    module: fallback,
-    intent: mapped.intent && mapped.intent !== "没有听清" ? mapped.intent : fallback,
-    detail: mapped.detail && !mapped.detail.includes("没有明确对应") ? mapped.detail : "",
-  };
+  // 灰区复核：模型给了具体模块、但把握不足（confidence 低于 0.85）时，
+  // 用规则再判一次；若规则能确定性命中且与模型不同，采纳规则结果。
+  // 实测模型常见句给出的 confidence 多在 0.9 以上，只有真正的含糊句才落进灰区。
+  if (confidence < 0.85 && confidence !== 0) {
+    const fallback = fallbackModule(userText);
+    if (fallback && fallback !== mapped.module) {
+      return {
+        ...mapped,
+        module: fallback,
+        intent: fallback,
+        detail: "",
+      };
+    }
+  }
+
+  return mapped;
 }
 
 /**
