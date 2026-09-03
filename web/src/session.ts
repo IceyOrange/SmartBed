@@ -52,6 +52,7 @@ export class Session {
       this.turns = [...seedTurns(now), ...this.turns.filter((t) => !t.id.startsWith("seed-"))];
       writePatient(patientBlurb());
       markSeeded(SEED_VERSION);
+      this.persist(); // 立刻落盘，否则刷新后内存里的种子丢失、flag 又已标记，再也看不到
     }
     this.turns.sort((a, b) => a.at - b.at);
   }
