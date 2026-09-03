@@ -42,8 +42,18 @@ GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 
 ### 本地代理（可选）
 
-纯静态预览时没有 `/api/chat` 后端。想在本地也走通，可在 `web/vite.config.ts` 里加一层
-`server.proxy` 把 `/api` 转发到 `vercel dev` 起的本地网关；正式体验建议直接用 `vercel dev`。
+本地完整跑通需同时起静态站（`vite dev`，5173）与函数网关（`vercel dev`，3000），
+`web/vite.config.ts` 已内置 `server.proxy` 把 `/api` 转发到 3000 端口：
+
+```powershell
+# 终端 A：起 Vercel 函数（天然读到 web/.env 里的 GLM_API_KEY）
+npx vercel dev
+
+# 终端 B：起 Vite 静态站，/api 自动代理到上面
+npm --prefix web run dev
+```
+
+打开 `http://127.0.0.1:5173/`。若不想起两个进程，也可以直接访问 `vercel dev` 给出的地址。
 
 ## 启动
 
