@@ -488,7 +488,9 @@ entryForm.addEventListener("submit", (event) => {
   void handleUtterance(entryInput.value);
 });
 
-// 空格键快捷开始/停止；焦点在输入类控件时不拦截。
+// 空格键 = 长按收音：按住开始说话，松开结束并发送。
+// 焦点在输入类控件时不拦截，避免打字时空格被抢。
+let spacePressed = false;
 document.addEventListener("keydown", (event) => {
   if (event.code !== "Space" || event.repeat) return;
   const target = event.target as HTMLElement | null;
@@ -496,7 +498,15 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   event.preventDefault();
-  toggleListening();
+  if (spacePressed) return;
+  spacePressed = true;
+  toggleListening(); // 开始收音（内部会走 jsMicStart）
+});
+document.addEventListener("keyup", (event) => {
+  if (event.code !== "Space") return;
+  if (!spacePressed) return;
+  spacePressed = false;
+  jsMicStop(); // 松开结束并发送
 });
 
 

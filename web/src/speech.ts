@@ -18,9 +18,10 @@ interface SpeechRecognitionEvent extends Event {
   readonly results: SpeechRecognitionResultList;
 }
 function isFinalResult(r: SpeechRecognitionResult): boolean {
-  // 规范里 isFinal=true 才是定稿。部分移动端 WebView 里 isFinal 永远为假、
-  // 而 length 会随用户停口增长到 1——这时才把它当定稿，避免把半截中间结果发出去。
-  return r.isFinal || r.length > 0;
+  // 只有 isFinal=true 才是定稿。长按场景里，中间结果每来一个字就触发一次 onresult，
+  // 若把“有文本”当成定稿，第一个字（如“帮”）就被当成整句发出去了。
+  // 真正的收尾由“松手 stop”驱动：stop 后浏览器会把累积的话作为最终结果回吐。
+  return r.isFinal === true;
 }
 interface SpeechRecognitionErrorEvent extends Event {
   readonly error: string;
@@ -86,6 +87,8 @@ export class SpeechInput {
   private stopping = false;
   private restarts = 0;
   private startTimer: number | null = null;
+  /** 长按收音时，松手会主动 stop；期间每段中间结果都记进这里供回显。 */
+  private interimBuf = "";
 
   get listening(): boolean {
     return this.active;
@@ -98,12 +101,18 @@ export class SpeechInput {
     this.gotFinal = false;
     this.stopping = false;
     this.restarts = 0;
+    this.interimBuf = "";
     return this.arm();
   }
 
   stop(): void {
     this.stopping = true;
     this.recognition?.stop();
+  }
+
+  /** 松手后把最后一段中间结果也保留，避免 final 短暂丢失。 */
+  pendingInterim(): string {
+    return this.interimBuf;
   }
 
   private arm(): boolean {
@@ -124,29 +133,34 @@ export class SpeechInput {
     };
 
     recognition.onresult = (event) => {
-      let interim = "";
+      this.clearStartTimer();
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
-        const transcript = result[0]?.transcript ?? "";
         if (isFinalResult(result)) {
-          const finalText = transcript.trim();
-          // 只认第一次最终结果，避免连续模式下多段 final 重复回调。
+          // 拼出本次最终稿：把 event.results 里所有定稿段（含最终那个）串起来，
+          // 多段连续模式下结果可能分片，需合并而非只取第一段。
+          const pieces: string[] = [];
+          for (let j = 0; j < event.results.length; j += 1) {
+            const r = event.results[j];
+            const t = r[0]?.transcript ?? "";
+            if (t) pieces.push(t);
+          }
+          const finalText = pieces.join("").trim();
           if (finalText && !this.gotFinal) {
             this.gotFinal = true;
-            this.stopping = true; // 一旦拿到定稿，禁止 onend 再走重启分支
+            this.stopping = true;
             this.callbacks?.onFinal(finalText);
-            try {
-              recognition.stop();
-            } catch {
-              /* 忽略：stop 抛错至少 onFinal 已发出 */
-            }
+            this.finish();
             return;
           }
-        } else {
-          interim += transcript;
         }
       }
-      if (interim.trim()) this.callbacks?.onInterim(interim.trim());
+      // 中间结果：合并当前这一段的 interim，回显给 UI，并留档供松手兜底。
+      const interim = event.results[event.results.length - 1]?.[0]?.transcript ?? "";
+      if (interim.trim()) {
+        this.interimBuf = interim.trim();
+        this.callbacks?.onInterim(interim.trim());
+      }
     };
 
     recognition.onerror = (event) => {
@@ -155,7 +169,6 @@ export class SpeechInput {
     };
 
     // 兜底：如果识别器一直既不 onstart 也不 onend，可能卡在未知状态。
-    // 这里不再依赖 onstart 打标，只要有最终结果就立即收尾。
     recognition.onend = () => {
       this.clearStartTimer();
       if (this.gotFinal || this.stopping || !this.active) {
@@ -199,7 +212,14 @@ export class SpeechInput {
     this.recognition = null;
     const cb = this.callbacks;
     this.callbacks = null;
+    const buf = this.interimBuf;
+    this.interimBuf = "";
     cb?.onEnd();
+    // 松手收尾时，若浏览器最终稿没回吐完整，用已记下的中间稿兜底，
+    // 避免把整句吞掉。这里在 onEnd 之后补发，保证 gotFinal 状态已定。
+    if (buf && !this.gotFinal) {
+      cb?.onFinal?.(buf);
+    }
   }
 
   private clearStartTimer(): void {
