@@ -447,8 +447,18 @@ mic.addEventListener("pointerdown", (e) => {
   if (busy) return;
   micPressed = true;
   micTimerStart();
-  mic.setPointerCapture?.(e.pointerId);
+  try {
+    mic.setPointerCapture?.(e.pointerId);
+  } catch {
+    /* 某些浏览器 setPointerCapture 不可用，忽略 */
+  }
 });
+mic.addEventListener("touchstart", (e) => {
+  // 移动端：阻止默认行为，防止长按时页面滚动 / 把焦点切到输入框，
+  // 让按钮能稳定接到完整的 touch 序列。
+  if (busy) return;
+  e.preventDefault();
+}, { passive: false });
 mic.addEventListener("pointerup", () => {
   micTimerClear();
   if (!micPressed) return;

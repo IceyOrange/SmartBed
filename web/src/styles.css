@@ -339,6 +339,8 @@ input:focus-visible {
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.3s ease, border-color 0.2s ease;
 }
+/* 长按中：视觉上紧贴手指，给出“正在收音”的反馈，避免被误判成普通点击 */
+.mic:active { transform: scale(0.94); }
 .mic:hover {
   transform: translateY(-1px);
   border-color: var(--plum);
