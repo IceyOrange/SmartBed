@@ -71,6 +71,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 const START_TIMEOUT_MS = 5000; // 守护 start() 到 onstart 之间的静默卡死
+const LISTENING_TIMEOUT_MS = 8000; // 进入 listening 后无任何识别结果就自动收尾并提示
 const MAX_RESTARTS = 2; // 累计静默/提前收尾后允许的无感重启次数，防无限循环
 
 /**
@@ -87,6 +88,8 @@ export class SpeechInput {
   private stopping = false;
   private restarts = 0;
   private startTimer: number | null = null;
+  /** 进入 listening 后无结果即收尾，防“一直卡在识别样式”。 */
+  private listeningTimer: number | null = null;
   /** 长按收音时，松手会主动 stop；期间每段中间结果都记进这里供回显。 */
   private interimBuf = "";
 
@@ -130,10 +133,12 @@ export class SpeechInput {
     recognition.onstart = () => {
       this.active = true;
       this.clearStartTimer();
+      this.listenTimer();
     };
 
     recognition.onresult = (event) => {
       this.clearStartTimer();
+      this.clearListenTimer();
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         if (isFinalResult(result)) {
@@ -171,6 +176,7 @@ export class SpeechInput {
     // 兜底：如果识别器一直既不 onstart 也不 onend，可能卡在未知状态。
     recognition.onend = () => {
       this.clearStartTimer();
+      this.clearListenTimer();
       if (this.gotFinal || this.stopping || !this.active) {
         this.finish();
         return;
@@ -208,6 +214,7 @@ export class SpeechInput {
 
   private finish(): void {
     this.clearStartTimer();
+    this.clearListenTimer();
     this.active = false;
     this.recognition = null;
     const cb = this.callbacks;
@@ -226,6 +233,32 @@ export class SpeechInput {
     if (this.startTimer !== null) {
       window.clearTimeout(this.startTimer);
       this.startTimer = null;
+    }
+  }
+
+  /** 进入 listening 后开一个“无结果即收尾”的看门狗；有任何结果/结束/出错都会被清除。 */
+  private listenTimer(): void {
+    this.clearListenTimer();
+    this.listeningTimer = window.setTimeout(() => {
+      this.listeningTimer = null;
+      // 只在真正「在听却一个字都没收到」时收尾，不打断正常识别。
+      if (this.active && !this.gotFinal) {
+        this.stopping = true;
+        try {
+          this.recognition?.stop();
+        } catch {
+          /* 忽略 */
+        }
+        this.callbacks?.onError("没有听到声音，请再试一次。");
+        this.finish();
+      }
+    }, LISTENING_TIMEOUT_MS);
+  }
+
+  private clearListenTimer(): void {
+    if (this.listeningTimer !== null) {
+      window.clearTimeout(this.listeningTimer);
+      this.listeningTimer = null;
     }
   }
 }
