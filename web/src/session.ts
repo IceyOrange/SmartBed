@@ -46,7 +46,7 @@ export class Session {
 
   /** 首次打开时种入预置病人档案 + 家人留言，让体验起点不是空白。 */
   private load(): void {
-    this.turns = readTurns(SEED_VERSION);
+    this.turns = readTurns();
     const now = Date.now();
     if (!isSeeded(SEED_VERSION)) {
       this.turns = [...seedTurns(now), ...this.turns.filter((t) => !t.id.startsWith("seed-"))];
@@ -100,7 +100,7 @@ export class Session {
   }
 }
 
-function readTurns(version: string): DialogueTurn[] {
+function readTurns(): DialogueTurn[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
