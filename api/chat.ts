@@ -29,13 +29,26 @@ function buildAttempts(): Attempt[] {
 
   const geminiKey = (process.env.GEMINI_API_KEY ?? "").trim();
   if (geminiKey) {
-    for (const model of [
+    // 首选可被 GEMINI_MODEL 覆盖；之后按「当前存在且可用的 flash 系」排降级链。
+    // 实测过期/不存在的 gemini-2.5-flash、gemini-2.0-flash、gemini-3-flash 均已移除，
+    // 改用仍然可用的 grossbox 现役模型 + latest 动态别名兜底，避免 404 断链。
+    const geminiModels = [
       (process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite").trim(),
-      "gemini-2.5-flash",
-      "gemini-3-flash",
-    ]) {
+      "gemini-3.6-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "gemini-flash-lite-latest",
+      "gemini-flash-latest",
+    ];
+    const seen = new Set<string>();
+    for (const model of geminiModels) {
       const m = model.trim();
-      if (m) list.push({ kind: "gemini", key: geminiKey, model: m });
+      if (m && !seen.has(m)) {
+        seen.add(m);
+        list.push({ kind: "gemini", key: geminiKey, model: m });
+      }
     }
   }
 
