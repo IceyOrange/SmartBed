@@ -17,7 +17,12 @@ export class GlmRequestError extends Error {}
  * 同源代理版“单次意图识别”。低延迟画像：非流式、response_format=json_object、低 reasoning。
  * 每句话只调用一次；模型名等派生参数由服务端统一决定，前端只关心内容。
  */
-export async function completeIntent(messages: ChatMessage[]): Promise<string> {
+export interface IntentResult {
+  content: string;
+  model: string | null;
+}
+
+export async function completeIntent(messages: ChatMessage[]): Promise<IntentResult> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 30000);
 
@@ -56,7 +61,7 @@ export async function completeIntent(messages: ChatMessage[]): Promise<string> {
     throw new GlmRequestError(`大模型请求失败（${detail}）。`);
   }
 
-  let payload: { content?: unknown };
+  let payload: { content?: unknown; model?: unknown };
   try {
     payload = await response.json();
   } catch {
@@ -67,5 +72,6 @@ export async function completeIntent(messages: ChatMessage[]): Promise<string> {
   if (!content) {
     throw new GlmRequestError("大模型没有返回可用内容。");
   }
-  return content;
+  const model = typeof payload.model === "string" ? payload.model : null;
+  return { content, model };
 }

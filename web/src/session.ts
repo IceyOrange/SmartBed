@@ -12,6 +12,7 @@ export interface DialogueTurn {
   reply: string;
   confidence: number;
   at: number;
+  model?: string;
 }
 
 const SYSTEM_PROMPT = buildSystemPrompt();
@@ -75,7 +76,7 @@ export class Session {
     ];
   }
 
-  record(userText: string, mapped: MappedIntent): DialogueTurn {
+  record(userText: string, mapped: MappedIntent, model?: string): DialogueTurn {
     const turn: DialogueTurn = {
       id: `${Date.now()}-${this.turns.length}`,
       userText,
@@ -85,6 +86,7 @@ export class Session {
       reply: mapped.reply,
       confidence: mapped.confidence,
       at: Date.now(),
+      model,
     };
     this.turns.push(turn);
     this.persist();

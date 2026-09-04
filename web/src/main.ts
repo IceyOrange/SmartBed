@@ -237,10 +237,11 @@ function assistantText(turn: DialogueTurn): string {
 function userBubble(text: string): string {
   return `<div class="msg msg--user"><div class="msg__bubble">${escapeHtml(text)}</div></div>`;
 }
-function botBubble(text: string, module: ModuleId | "welcome"): string {
+function botBubble(text: string, module: ModuleId | "welcome", model?: string): string {
+  const modelNote = model ? `<span class="msg__model">${escapeHtml(model)}</span>` : "";
   return `<div class="msg msg--bot" data-module="${module}">
     <span class="msg__avatar" aria-hidden="true"><img src="/jd_icon.webp" alt="" /></span>
-    <div class="msg__bubble">${escapeHtml(text)}</div>
+    <div class="msg__bubble">${escapeHtml(text)}${modelNote}</div>
   </div>`;
 }
 function typingBubble(): string {
@@ -278,7 +279,7 @@ function renderThread() {
       lastShownAt = turn.at;
     }
     parts.push(userBubble(turn.userText));
-    parts.push(botBubble(assistantText(turn), turn.module));
+    parts.push(botBubble(assistantText(turn), turn.module, turn.model));
   }
   if (pendingUser) {
     const now = Date.now();
@@ -362,9 +363,9 @@ async function handleUtterance(text: string) {
 
   try {
     const messages = session.buildMessages(clean);
-    const content = await completeIntent(messages);
+    const { content, model } = await completeIntent(messages);
     const mapped = mapIntentWithFallback(parseModelJson(content), clean);
-    const turn = session.record(clean, mapped);
+    const turn = session.record(clean, mapped, model ?? undefined);
     await renderResult(turn);
     pendingUser = null;
     renderThread();

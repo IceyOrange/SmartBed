@@ -225,7 +225,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (payload ?? {}) as Record<string, unknown>,
     );
     if (content) {
-      res.status(200).json({ content });
+      // 附带本次实际命中的模型名，前端可小字展示“用了哪个模型”。
+      res.status(200).json({ content, model: attempt.model });
       return;
     }
     lastError = `${attempt.kind} ${attempt.model} 返回了空内容`;

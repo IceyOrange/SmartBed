@@ -290,6 +290,16 @@ input:focus-visible {
 .msg--bot[data-module="relationship"] .msg__bubble { border-left: 3px solid var(--accent-relationship); }
 .msg--bot[data-module="daily"] .msg__bubble { border-left: 3px solid var(--accent-daily); }
 
+/* 每条助手回复底部的小字：本次实际命中的模型名（排查降级/额度用） */
+.msg__model {
+  display: block;
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--muted);
+  opacity: 0.72;
+}
+
 .msg__bubble--typing { display: inline-flex; gap: 5px; padding: 13px; }
 .msg__bubble--typing i {
   width: 7px; height: 7px; border-radius: 50%;
