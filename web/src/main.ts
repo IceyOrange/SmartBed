@@ -376,9 +376,9 @@ async function handleUtterance(text: string) {
     pendingUser = null;
     renderThread();
     pipelineError();
-    // 出错不吞话：把这句原样放回输入框并聚焦，长者/护理者按一下发送即可重试，不必重打。
+    // 出错不吞话：把这句原样放回输入框，长者/护理者按一下发送即可重试，不必重打。
+    // 聚焦会呼起移动端软键盘，故不 focus，交由用户自行点输入框重试。
     entryInput.value = clean;
-    entryInput.focus();
     if (error instanceof GlmNotConfiguredError) {
       composerHint.textContent = "还没有配置 Gemini API Key，请联系部署者通过环境变量注入。";
     } else if (error instanceof GlmRequestError) {
@@ -402,7 +402,6 @@ function setListening(on: boolean) {
 function toggleListening() {
   if (busy) return;
   if (!speechSupported) {
-    entryInput.focus();
     composerHint.textContent = "当前浏览器不支持语音，请直接打字";
     return;
   }
@@ -432,7 +431,6 @@ function jsMicStart() {
       setListening(false);
       if (message) {
         composerHint.textContent = message;
-        entryInput.focus();
       }
     },
     onEnd: () => setListening(false),
@@ -445,6 +443,7 @@ function jsMicStop() {
 }
 
 // 点按切换：未在听时点＝开始收音；正在听时点＝结束并发送。
+// 单击即触发，绝不调用输入框 focus，避免移动端呼起软键盘打断收音。
 mic.addEventListener("click", () => {
   if (busy) return;
   if (speech.listening) {
@@ -452,7 +451,6 @@ mic.addEventListener("click", () => {
     return;
   }
   if (!speechSupported) {
-    entryInput.focus();
     composerHint.textContent = "当前浏览器不支持语音，请直接打字";
     return;
   }
