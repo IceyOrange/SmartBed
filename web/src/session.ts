@@ -107,11 +107,8 @@ function readTurns(version: string): DialogueTurn[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const turns = parsed as DialogueTurn[];
-    // 旧版本种子已经过期（结构或文案变过）：只保留用户真实对话，丢弃旧种子。
-    if (localStorage.getItem(SEED_FLAG_KEY) !== version) {
-      return turns.filter((t) => !t.id.startsWith("seed-"));
-    }
-    return turns;
+    // 刷新只保留预置种子，丢弃用户额外对话。
+    return turns.filter((t) => t.id.startsWith("seed-"));
   } catch {
     return [];
   }
