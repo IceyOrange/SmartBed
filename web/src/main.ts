@@ -40,7 +40,7 @@ app.innerHTML = `
     <section class="chat" aria-label="对话">
       <div class="chat__head">
         <strong>对话</strong>
-        <span>刷新页面即清空，不长期保存</span>
+        <span>刷新保留预置对话，清除本次输入</span>
       </div>
       <div class="chat__thread-wrap">
         <div class="chat__thread" id="thread" aria-live="polite"></div>
@@ -52,7 +52,7 @@ app.innerHTML = `
       <div class="quick" id="quick-row" aria-label="试着这样说"></div>
       <form class="composer" id="entry-form" autocomplete="off">
         <button type="button" class="mic" id="mic" aria-pressed="false"
-          aria-label="按住说话，松开发送">
+          aria-label="点按开始说话，再点一次发送">
           <span class="mic__glyph" aria-hidden="true">🎙</span>
           <span class="mic__wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
         </button>
@@ -261,7 +261,8 @@ const TIME_DIVIDER_GAP_MS = 3 * 60 * 1000;
 
 function renderThread() {
   const turns = session.history;
-  memoryCount.textContent = `本次对话 ${turns.length} 条`;
+  const userTurns = turns.filter((t) => !t.id.startsWith("seed-"));
+  memoryCount.textContent = `本次对话 ${userTurns.length} 条`;
   const parts: string[] = [];
   if (!turns.length && !pendingUser) {
     parts.push(`<div class="chat__empty">
@@ -395,7 +396,7 @@ async function handleUtterance(text: string) {
 function setListening(on: boolean) {
   mic.dataset.listening = String(on);
   mic.setAttribute("aria-pressed", String(on));
-  composerHint.textContent = on ? "正在听…松开即发送" : "";
+  composerHint.textContent = on ? "正在听…再点一次发送" : "";
 }
 
 function toggleListening() {
@@ -412,12 +413,10 @@ function toggleListening() {
   jsMicStart();
 }
 
-// —— 麦克风长按收音（移动端核心交互）——
-// 按下＝开始收音，抬起＝结束并发送。移动端用 touch 事件、桌面用 mouse，
-// 各自独立，不混用 pointer（部分 WebView/软键盘下 pointer 序列会丢中间态、
-// 或被 focus 抢占，导致“按了没反应”）。开始直接收音，不做延迟计时。
-let micRecording = false;
-
+// —— 麦克风点按收音（移动端核心交互）——
+// 点一下＝开始收音（进入 listening），再点一下＝结束并发送。相比长按，
+// 点按在触屏上不易脱手，也不会在识别尚未出最终稿时就被松手截断。
+// 桌面与移动端统一走 click，不再引用 touch/mouse 长按序列。
 function jsMicStart() {
   if (busy || speech.listening) return;
   speaker.cancel();
@@ -425,7 +424,10 @@ function jsMicStart() {
     onInterim: (t) => {
       if (t) composerHint.textContent = `“${t}”`;
     },
-    onFinal: (t) => void handleUtterance(t),
+    onFinal: (t) => {
+      setListening(false);
+      void handleUtterance(t);
+    },
     onError: (message) => {
       setListening(false);
       if (message) {
@@ -442,38 +444,27 @@ function jsMicStop() {
   if (speech.listening) speech.stop();
 }
 
-function pressStart(e: Event) {
-  e.preventDefault();
-  if (busy || micRecording) return;
-  micRecording = true;
+// 点按切换：未在听时点＝开始收音；正在听时点＝结束并发送。
+mic.addEventListener("click", () => {
+  if (busy) return;
+  if (speech.listening) {
+    jsMicStop();
+    return;
+  }
+  if (!speechSupported) {
+    entryInput.focus();
+    composerHint.textContent = "当前浏览器不支持语音，请直接打字";
+    return;
+  }
   jsMicStart();
-}
-function pressEnd() {
-  if (!micRecording) return;
-  micRecording = false;
-  jsMicStop();
-}
-
-// 移动端：touch 事件最可靠，preventDefault 阻断 click/focus 抢占。
-mic.addEventListener("touchstart", pressStart, { passive: false });
-mic.addEventListener("touchend", (e) => {
-  e.preventDefault();
-  pressEnd();
 });
-mic.addEventListener("touchcancel", pressEnd);
-
-// 桌面：无 touch 时用 mouse 事件（pointerup 在部分环境与 touchend 重复触发，
-// 这里刻意不用 pointer，避免二次 stop）。
-mic.addEventListener("mousedown", pressStart);
-mic.addEventListener("mouseup", pressEnd);
-mic.addEventListener("mouseleave", pressEnd);
 
 entryForm.addEventListener("submit", (event) => {
   event.preventDefault();
   void handleUtterance(entryInput.value);
 });
 
-// 空格键 = 长按收音：按住开始说话，松开结束并发送。
+// 空格键 = 点按收音：按下开始（走 toggleListening），再按一次结束并发送。
 // 焦点在输入类控件时不拦截，避免打字时空格被抢。
 let spacePressed = false;
 document.addEventListener("keydown", (event) => {
@@ -491,7 +482,7 @@ document.addEventListener("keyup", (event) => {
   if (event.code !== "Space") return;
   if (!spacePressed) return;
   spacePressed = false;
-  jsMicStop(); // 松开结束并发送
+  toggleListening(); // 再按一次＝结束并发送
 });
 
 
